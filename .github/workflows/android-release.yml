@@ -1,136 +1,98 @@
-name: Android Release Build & GitHub Release
+name: Android Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'
       - 'v*'
   workflow_dispatch:
-    inputs:
-      release_notes:
-        description: 'Notas de la versión'
-        required: false
-        default: 'Compilación manual de release Android para sideloading'
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build, Sign & Release Android APK
+  release:
+    name: Build & Release APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Clonar repositorio
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🟢 Configurar Node.js (v22)
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
-      - name: ☕ Configurar Java JDK (OpenJDK 17)
+      - name: ☕ Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🐘 Configurar Gradle con Cache
+      - name: 🐘 Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: 📦 Instalar dependencias Web
+      - name: 📦 Install web dependencies
         run: npm ci
 
-      - name: 🏗️ Compilar Frontend Web (Vite)
+      - name: 🏗️ Build web assets
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: 🔄 Sincronizar Capacitor con Android
+      - name: 🔄 Sync Capacitor Android
         run: npx cap sync android
 
-      - name: 🔨 Compilar APK de Release (assembleRelease)
+      - name: 🔐 Configure Keystore (if secret exists)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+            echo "KEYSTORE_PATH=release.keystore" >> $GITHUB_ENV
+          fi
+
+      - name: 🔨 Build Android Release APK
         working-directory: android
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: 📦 Compilar AAB de Release (bundleRelease)
-        working-directory: android
-        run: ./gradlew bundleRelease --no-daemon
-
-      - name: ✍️ Firmar APK de Release (si existen secrets)
-        id: sign_apk
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: android/app/build/outputs/apk/release
-          signingKey: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-      - name: ✍️ Firmar AAB de Release (si existen secrets)
-        id: sign_aab
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: android/app/build/outputs/bundle/release
-          signingKey: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-      - name: 🏷️ Preparar y empaquetar artefactos para Release
-        id: prepare_artifacts
+      - name: 📦 Locate and prepare APK
+        id: prepare_apk
         run: |
-          VERSION_TAG="${{ github.ref_name }}"
-          if [ -z "$VERSION_TAG" ] || [ "${{ github.ref_type }}" != "tag" ]; then
-            VERSION_TAG="manual-${{ github.sha }}"
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "${{ github.ref_type }}" != "tag" ]; then
+            TAG="manual-${{ github.sha }}"
           fi
-          mkdir -p release-artifacts
-
-          # Manejo de APK (firmado o compilado directo)
-          if [ -n "${{ steps.sign_apk.outputs.signedFile }}" ] && [ -f "${{ steps.sign_apk.outputs.signedFile }}" ]; then
-            cp "${{ steps.sign_apk.outputs.signedFile }}" "release-artifacts/horizon-${VERSION_TAG}-signed.apk"
-            echo "apk_path=release-artifacts/horizon-${VERSION_TAG}-signed.apk" >> $GITHUB_OUTPUT
-          elif [ -f "android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            cp "android/app/build/outputs/apk/release/app-release-unsigned.apk" "release-artifacts/horizon-${VERSION_TAG}-unsigned.apk"
-            echo "apk_path=release-artifacts/horizon-${VERSION_TAG}-unsigned.apk" >> $GITHUB_OUTPUT
+          mkdir -p release-output
+          APK_FILE=$(find android/app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No APK found!" && exit 1
           fi
+          cp "$APK_FILE" "release-output/horizon-${TAG}.apk"
+          echo "apk_path=release-output/horizon-${TAG}.apk" >> $GITHUB_OUTPUT
 
-          # Manejo de AAB (firmado o compilado directo)
-          if [ -n "${{ steps.sign_aab.outputs.signedFile }}" ] && [ -f "${{ steps.sign_aab.outputs.signedFile }}" ]; then
-            cp "${{ steps.sign_aab.outputs.signedFile }}" "release-artifacts/horizon-${VERSION_TAG}-signed.aab"
-            echo "aab_path=release-artifacts/horizon-${VERSION_TAG}-signed.aab" >> $GITHUB_OUTPUT
-          elif [ -f "android/app/build/outputs/bundle/release/app-release.aab" ]; then
-            cp "android/app/build/outputs/bundle/release/app-release.aab" "release-artifacts/horizon-${VERSION_TAG}.aab"
-            echo "aab_path=release-artifacts/horizon-${VERSION_TAG}.aab" >> $GITHUB_OUTPUT
-          fi
-
-      - name: 📤 Subir artefactos a los Action Runs (Descarga directa en GitHub)
+      - name: 📤 Upload Artifact to Actions Run
         uses: actions/upload-artifact@v4
         with:
-          name: horizon-android-${{ github.ref_name || github.sha }}
-          path: release-artifacts/*
+          name: horizon-android-apk
+          path: release-output/*.apk
           retention-days: 30
 
-      - name: 🚀 Publicar en GitHub Releases
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v-manual-{0}', github.sha) }}
-          name: Horizon Android Release ${{ github.ref_name }}
-          body: |
-            ## 📱 Horizon 2027 — Android Release
-            
-            ${{ github.event.inputs.release_notes || 'Compilación automática generada por GitHub Actions.' }}
-
-            ### 📦 Descarga directa (Sideloading)
-            - Descarga el archivo `.apk` adjunto en tu dispositivo Android.
-            - Habilita la instalación desde fuentes desconocidas si tu dispositivo lo solicita.
-            - ¡Disfruta de la experiencia táctil de Horizon hacia 2027!
+          name: Horizon Release ${{ github.ref_name }}
+          files: release-output/*.apk
+          draft: false
+          prerelease: false
           generate_release_notes: true
-          files: release-artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
