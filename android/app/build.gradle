@@ -18,7 +18,8 @@ android {
     }
     signingConfigs {
         release {
-            def ksFile = file(System.getenv("KEYSTORE_PATH") ?: "release.keystore")
+            def ksPath = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
+            def ksFile = file(ksPath)
             if (ksFile.exists()) {
                 storeFile ksFile
                 def pass = System.getenv("KEYSTORE_PASSWORD")
@@ -27,6 +28,8 @@ android {
                 keyAlias (alias != null && !alias.trim().isEmpty()) ? alias : "horizon-release"
                 def kpass = System.getenv("KEY_PASSWORD")
                 keyPassword (kpass != null && !kpass.trim().isEmpty()) ? kpass : "Horizon2027#SecurePass!"
+                v1SigningEnabled true
+                v2SigningEnabled true
             }
         }
     }
