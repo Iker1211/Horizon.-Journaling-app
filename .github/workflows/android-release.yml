@@ -18,10 +18,10 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🟢 Setup Node.js
+      - name: 🟢 Setup Node.js (v22 required for Capacitor 8)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: ☕ Setup Java JDK 17
@@ -89,6 +89,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
+          tag_name: ${{ github.ref_name }}
           name: Horizon Release ${{ github.ref_name }}
           files: release-output/*.apk
           draft: false
