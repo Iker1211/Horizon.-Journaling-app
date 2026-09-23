@@ -17,22 +17,20 @@ android {
         }
     }
     signingConfigs {
-        def ksPath = System.getenv("KEYSTORE_PATH")
-        if (ksPath && file(ksPath).exists()) {
-            release {
-                storeFile file(ksPath)
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+        release {
+            def ksFile = file(System.getenv("KEYSTORE_PATH") ?: "release.keystore")
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "Horizon2027#SecurePass!"
+                keyAlias System.getenv("KEY_ALIAS") ?: "horizon-release"
+                keyPassword System.getenv("KEY_PASSWORD") ?: "Horizon2027#SecurePass!"
             }
         }
     }
     buildTypes {
         release {
-            if (signingConfigs.findByName("release")) {
+            if (signingConfigs.release.storeFile) {
                 signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
