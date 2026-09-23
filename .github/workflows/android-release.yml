@@ -51,7 +51,7 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
-            echo "KEYSTORE_PATH=release.keystore" >> $GITHUB_ENV
+            echo "KEYSTORE_PATH=app/release.keystore" >> $GITHUB_ENV
           fi
 
       - name: 🔨 Build Android Release APK
@@ -61,7 +61,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: 📦 Locate and prepare APK
         id: prepare_apk
