@@ -1,0 +1,315 @@
+/* Wrapper Studio / Cockpit Styles - Horizon 2027 */
+
+.wrapper-studio-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Ambient Backlight Halo */
+.wrapper-studio-ambient-aura {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  max-width: 1400px;
+  height: 380px;
+  background: radial-gradient(ellipse at top, var(--ambient-wrapper-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Studio Breadcrumb / Top Bar */
+.studio-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.studio-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+  box-shadow: 0 2px 0 var(--color-surface-strong);
+}
+
+.studio-back-btn:hover {
+  background-color: var(--color-surface-soft);
+  transform: translateX(-2px);
+}
+
+/* Studio Quick Switcher Pill Strip */
+.studio-switcher-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 4px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.studio-pill-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--color-hairline);
+  background-color: var(--color-canvas);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-body);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+  white-space: nowrap;
+}
+
+.studio-pill-switch:hover {
+  background-color: var(--color-surface-soft);
+  transform: translateY(-1px);
+}
+
+.studio-pill-switch.active {
+  border-color: var(--ambient-wrapper-color);
+  background-color: var(--ambient-wrapper-surface);
+  color: var(--color-ink);
+  box-shadow: 0 3px 0 var(--ambient-wrapper-border);
+  transform: translateY(-2px);
+}
+
+/* Wrapper Hero Cocoon (The Enveloping Stage) */
+.studio-hero-card {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-xl);
+  padding: 36px 40px;
+  box-shadow: 0 6px 0 rgba(10, 26, 26, 0.08), 0 20px 32px -10px rgba(10, 26, 26, 0.06);
+  border: 1.5px solid var(--ambient-wrapper-border);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow: hidden;
+}
+
+.studio-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.studio-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-wrapper-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  color: var(--color-ink);
+}
+
+.studio-wrapper-desc {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-body);
+  max-width: 760px;
+}
+
+/* Strategic Goals Checklist in Studio */
+.studio-goals-container {
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+
+.studio-goals-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.studio-goals-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  list-style: none;
+}
+
+.studio-goal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-hairline);
+  box-shadow: 0 2px 0 var(--color-surface-strong);
+}
+
+/* Studio Metrics HUD Strip */
+.studio-stats-hud {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.studio-stat-card {
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: 0 3px 0 var(--color-surface-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-stat-num {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--color-ink);
+  line-height: 1;
+}
+
+.studio-stat-label {
+  font-size: 12px;
+  color: var(--color-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Quarters Timeline in Studio */
+.studio-quarters-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.studio-quarters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.studio-quarter-column {
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: 0 3px 0 var(--color-surface-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.studio-quarter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-hairline);
+  padding-bottom: 10px;
+}
+
+.studio-quarter-badge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+}
+
+.studio-quarter-entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 80px;
+}
+
+.studio-entry-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+}
+
+.studio-entry-row:hover {
+  background-color: var(--color-surface-card);
+  transform: translateY(-1px);
+}
+
+/* Embedded Journal in Studio */
+.studio-journal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Tablet & Mobile Responsiveness */
+@media (max-width: 860px) {
+  .studio-hero-card {
+    padding: 24px 20px;
+  }
+
+  .studio-wrapper-title {
+    font-size: 26px;
+  }
+
+  .studio-quarters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-nav-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studio-switcher-strip {
+    width: 100%;
+  }
+}

@@ -1,0 +1,467 @@
+/* ==============================================================================
+   Clay Markdown Sheet & Full-Route Editor Styles
+   Single-column editorial layout adhering to GEMINI.md tokens & design language
+   ============================================================================== */
+
+/* --- Single Column Sheet Container --- */
+.single-column-sheet {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 16px 20px 80px;
+}
+
+/* --- Editor Page Top Header --- */
+.editor-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-hairline);
+  flex-wrap: wrap;
+}
+
+.editor-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  transition: all 0.2s var(--ease-spring);
+}
+
+.editor-back-btn:hover {
+  background-color: var(--color-surface-soft);
+  transform: translateX(-2px);
+}
+
+.editor-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.editor-autosave-badge {
+  font-size: 12px;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-surface-soft);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-hairline);
+}
+
+/* --- Wrapper Selector Bar --- */
+.editor-theme-wrapper-bar {
+  background-color: #ffffff;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
+  padding: 16px 20px;
+  box-shadow: 0 3px 0 var(--color-surface-strong);
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor-theme-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.editor-theme-badge-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.editor-meta-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-hairline-soft);
+}
+
+.editor-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-body);
+}
+
+.editor-meta-input {
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  outline: none;
+}
+
+.editor-meta-input:focus {
+  border-color: var(--color-ink);
+}
+
+/* --- View Mode Switcher (Escribir | Dividido | Vista Previa) --- */
+.editor-mode-toggle {
+  display: inline-flex;
+  background-color: var(--color-surface-soft);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-hairline);
+}
+
+.editor-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s var(--ease-spring);
+}
+
+.editor-mode-btn.active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Markdown Formatting Toolbar --- */
+.editor-markdown-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar-btn {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.toolbar-btn:hover {
+  background-color: var(--color-surface-card);
+  transform: translateY(-1px);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--color-hairline);
+  margin: 0 4px;
+}
+
+/* --- Editorial Writing Canvas --- */
+.editor-canvas-card {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline);
+  box-shadow: 0 4px 0 var(--color-surface-strong), 0 12px 30px rgba(10, 26, 26, 0.04);
+  padding: 40px 48px;
+  min-height: 520px;
+}
+
+.editor-title-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  line-height: 1.15;
+  color: var(--color-ink);
+  background: transparent;
+  margin-bottom: 12px;
+  padding: 0;
+}
+
+.editor-title-input::placeholder {
+  color: var(--color-muted-soft);
+}
+
+.editor-summary-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-style: italic;
+  color: var(--color-body);
+  background: transparent;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+
+.editor-summary-input::placeholder {
+  color: var(--color-muted);
+}
+
+.editor-markdown-textarea {
+  width: 100%;
+  min-height: 380px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  font-family: var(--font-family-2);
+  font-size: 16.5px;
+  line-height: 1.8;
+  color: var(--color-body-strong);
+  padding: 0;
+}
+
+.editor-markdown-textarea::placeholder {
+  color: var(--color-muted);
+  line-height: 1.8;
+}
+
+/* --- Split View Grid --- */
+.editor-split-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.editor-split-preview-pane {
+  background-color: #ffffff;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline);
+  padding: 40px;
+  max-height: 700px;
+  overflow-y: auto;
+  box-shadow: 0 4px 0 var(--color-surface-strong);
+}
+
+/* --- Markdown Sheet Rendered Output (.markdown-sheet-content) --- */
+.markdown-sheet-content {
+  font-family: var(--font-family-2);
+  font-size: 16.5px;
+  line-height: 1.8;
+  color: var(--color-body);
+}
+
+.markdown-sheet-content h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--color-ink);
+  margin: 32px 0 14px;
+  line-height: 1.2;
+}
+
+.markdown-sheet-content h1:first-child {
+  margin-top: 0;
+}
+
+.markdown-sheet-content h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--color-ink);
+  margin: 28px 0 12px;
+  line-height: 1.25;
+}
+
+.markdown-sheet-content h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 22px 0 10px;
+}
+
+.markdown-sheet-content p {
+  margin: 0 0 18px;
+  color: var(--color-body);
+}
+
+.markdown-sheet-content blockquote {
+  border-left: 4px solid var(--sheet-theme-color, var(--color-brand-teal));
+  background-color: var(--color-surface-soft);
+  padding: 16px 20px;
+  margin: 24px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-style: italic;
+  color: var(--color-body-strong);
+}
+
+.markdown-sheet-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-sheet-content ul,
+.markdown-sheet-content ol {
+  padding-left: 24px;
+  margin: 0 0 20px;
+}
+
+.markdown-sheet-content li {
+  margin-bottom: 6px;
+}
+
+.markdown-sheet-content code {
+  background-color: var(--color-surface-card);
+  color: var(--color-ink);
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.markdown-sheet-content pre {
+  background-color: var(--color-surface-dark);
+  color: #f3f4f6;
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  margin: 24px 0;
+  border: 1px solid var(--color-surface-dark-elevated);
+}
+
+.markdown-sheet-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.markdown-sheet-content hr {
+  border: none;
+  height: 1px;
+  background-color: var(--color-hairline);
+  margin: 36px 0;
+}
+
+.markdown-sheet-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+}
+
+.markdown-sheet-content th,
+.markdown-sheet-content td {
+  border: 1px solid var(--color-hairline);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.markdown-sheet-content th {
+  background-color: var(--color-surface-soft);
+  font-weight: 700;
+}
+
+/* --- Reader Page (Full Route Single-Column Sheet) --- */
+.reader-page-container {
+  max-width: 740px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 20px 100px;
+}
+
+.reader-article-sheet {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline);
+  padding: 48px 56px;
+  box-shadow: 0 4px 0 var(--color-surface-strong), 0 16px 40px rgba(10, 26, 26, 0.05);
+}
+
+.reader-hero-title {
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1.12;
+  color: var(--color-ink);
+  margin: 16px 0;
+}
+
+.reader-lead-summary {
+  background-color: var(--color-surface-soft);
+  border-left: 4px solid var(--sheet-theme-color, var(--color-brand-coral));
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 18px 22px;
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--color-body-strong);
+  margin: 24px 0 32px;
+}
+
+
+
+/* Mobile & Tablet Responsiveness */
+@media (max-width: 860px) {
+  .single-column-sheet,
+  .reader-page-container {
+    padding: 12px 14px 90px;
+  }
+
+  .editor-canvas-card,
+  .reader-article-sheet {
+    padding: 24px 20px;
+    border-radius: var(--radius-lg);
+  }
+
+  .editor-title-input,
+  .reader-hero-title {
+    font-size: 26px;
+    letter-spacing: -0.8px;
+  }
+
+  .editor-split-container {
+    grid-template-columns: 1fr;
+  }
+}

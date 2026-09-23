@@ -1,0 +1,637 @@
+/* Clay Components Styles */
+
+.top-nav {
+  height: 64px;
+  background-color: rgba(255, 250, 240, 0.88);
+  border-bottom: 1px solid var(--color-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-xl);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.clay-logo-monolith {
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.nav-brand:hover .clay-logo-monolith {
+  transform: translateY(-2px) scale(1.06);
+}
+
+.nav-brand-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-brand-badge {
+  font-size: 11px;
+  background: var(--color-brand-teal);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.nav-tabs {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--color-hairline);
+}
+
+.nav-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.nav-tab-btn:hover {
+  color: var(--color-ink);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.nav-tab-btn.active {
+  background-color: var(--color-surface-card);
+  color: var(--color-ink);
+  font-weight: 600;
+  box-shadow: 0 2px 0 var(--color-surface-strong);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-countdown-pill {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 0 var(--color-surface-strong);
+}
+
+.nav-countdown-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-brand-coral);
+  animation: pulseGlow 1.8s infinite;
+}
+
+/* Hero Band from GEMINI.md */
+.hero-band {
+  position: relative;
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1.5px solid var(--color-hairline);
+  padding: 56px var(--spacing-xl) 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 4px 0 var(--color-surface-strong), 0 16px 36px rgba(10, 26, 26, 0.05);
+}
+
+.hero-band-horizon-bg {
+  background-image:
+    linear-gradient(135deg, rgba(255, 250, 240, 0.94) 0%, rgba(255, 250, 240, 0.86) 45%, rgba(255, 250, 240, 0.72) 100%),
+    url('/images/horizon-abstract.jpg');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+}
+
+.hero-content-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 840px;
+}
+
+@media (max-width: 980px) {
+  .hero-band {
+    padding: 36px var(--spacing-md) 32px;
+  }
+}
+
+.hero-band-title {
+  font-family: var(--font-primary);
+  font-size: 52px;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  font-weight: 500;
+  color: var(--color-ink);
+  margin-bottom: 16px;
+}
+
+.hero-motto-headline {
+  display: block;
+  font-size: 44px;
+  letter-spacing: -1.5px;
+  color: var(--color-ink);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+@media (min-width: 1100px) {
+  .hero-band-title {
+    font-size: 58px;
+    letter-spacing: -2.5px;
+  }
+  .hero-motto-headline {
+    font-size: 48px;
+    letter-spacing: -2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-band-title {
+    font-size: 38px;
+    letter-spacing: -1.2px;
+  }
+  .hero-motto-headline {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+}
+
+.hero-band-title span.highlight-pink {
+  color: var(--color-brand-coral);
+  display: inline-block;
+  position: relative;
+}
+
+.hero-band-title span.highlight-teal {
+  color: var(--color-brand-teal);
+}
+
+.hero-band-subtitle {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-body);
+  margin-bottom: 28px;
+  max-width: 580px;
+}
+
+.hero-stats-strip {
+  display: flex;
+  gap: 20px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.hero-stat-card {
+  background-color: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  box-shadow: 0 2px 0 var(--color-surface-strong);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hero Temporal Cockpit (replaces mountain illustration with high-value HUD) */
+.hero-temporal-cockpit {
+  background-color: var(--color-surface-soft);
+  border: 1.5px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: 0 4px 0 var(--color-surface-strong), 0 12px 24px rgba(10, 26, 26, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hero-stat-num {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--color-ink);
+  line-height: 1.1;
+}
+
+.hero-stat-label {
+  font-size: 12px;
+  color: var(--color-body);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive Clay Illustrations */
+.clay-illustration, svg.clay-illustration {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Page container */
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-xl) 80px;
+}
+
+/* Section Header */
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: var(--color-ink);
+}
+
+.section-desc {
+  font-size: 15px;
+  color: var(--color-muted);
+  margin-top: 4px;
+}
+
+/* Bottom Game Navigation Bar (Clash Royale style for Tablet & Mobile) */
+.bottom-game-nav {
+  display: none;
+}
+
+/* Tablet & Mobile Responsive (<= 860px) */
+@media (max-width: 860px) {
+  /* Hide the top nav tab links on tablet and mobile */
+  .top-nav .nav-tabs {
+    display: none;
+  }
+
+  .top-nav {
+    padding: env(safe-area-inset-top, 0px) calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
+    height: calc(58px + env(safe-area-inset-top, 0px));
+  }
+
+  /* Show the sticky bottom game navigation bar */
+  .bottom-game-nav {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 995;
+    background: rgba(255, 250, 240, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1.5px solid var(--color-hairline);
+    box-shadow: 0 -4px 20px rgba(10, 26, 26, 0.08), 0 -1px 0 var(--color-surface-strong);
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .bottom-game-nav-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.15fr 1fr 1fr;
+    gap: 6px;
+    max-width: 520px;
+    margin: 0 auto;
+    align-items: end;
+  }
+
+  .bottom-game-tab {
+    background: transparent;
+    border: none;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 4px 5px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.25s var(--ease-spring);
+    position: relative;
+    color: var(--color-muted);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bottom-game-tab:hover {
+    color: var(--color-ink);
+  }
+
+  .bottom-game-tab:active {
+    transform: scale(0.92);
+  }
+
+  /* Clash Royale Active Tab Pop-out */
+  .bottom-game-tab.active {
+    background: var(--color-primary);
+    color: #ffffff;
+    transform: translateY(-4px) scale(1.04);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4), 0 8px 16px rgba(10, 26, 26, 0.2);
+  }
+
+  /* Central Elevated Action FAB (Clay 3D Horizon Style) */
+  .bottom-game-fab {
+    background: linear-gradient(135deg, var(--color-brand-coral), var(--color-brand-peach));
+    color: #ffffff;
+    border: none;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    margin: 0 auto -6px;
+    transform: translateY(-10px);
+    box-shadow: 0 5px 0 #d94b38, 0 10px 20px rgba(255, 107, 90, 0.35);
+    transition: all 0.2s var(--ease-spring);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 10;
+  }
+
+  .bottom-game-fab:hover {
+    transform: translateY(-13px) scale(1.05);
+    box-shadow: 0 7px 0 #d94b38, 0 14px 24px rgba(255, 107, 90, 0.45);
+  }
+
+  .bottom-game-fab:active {
+    transform: translateY(-4px) scale(0.92);
+    box-shadow: 0 2px 0 #d94b38, 0 4px 10px rgba(255, 107, 90, 0.3);
+  }
+
+  .bottom-game-fab-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--color-ink);
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  .bottom-tab-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+  }
+
+  .bottom-tab-active-dot {
+    position: absolute;
+    top: -2px;
+    right: -5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-brand-coral);
+    box-shadow: 0 0 6px var(--color-brand-coral);
+  }
+
+  .bottom-tab-label {
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 3px;
+    letter-spacing: 0.2px;
+    line-height: 1;
+  }
+
+  /* Content padding adjustment to avoid bottom bar overlap */
+  .main-content,
+  .dashboard-root {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+  .main-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  footer {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Hero Section Stacking */
+  .hero-band {
+    grid-template-columns: 1fr;
+    padding: 28px 16px 20px;
+    gap: 24px;
+    text-align: center;
+  }
+
+  .hero-band-title {
+    font-size: 32px;
+    line-height: 1.12;
+  }
+
+  .hero-band-subtitle {
+    font-size: 15px;
+    margin: 0 auto 20px;
+  }
+
+  .countdown-box-container {
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  .hero-stats-strip {
+    justify-content: center;
+  }
+
+  /* Modal responsiveness */
+  .modal-content {
+    padding: 20px;
+    max-width: 95vw !important;
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* Small Smartphone Responsive (<= 480px) */
+@media (max-width: 480px) {
+  .hero-band-title {
+    font-size: 26px;
+  }
+
+  .countdown-unit-card {
+    padding: 8px 4px;
+  }
+
+  .countdown-unit-num {
+    font-size: 22px;
+  }
+
+  .countdown-unit-label {
+    font-size: 9px;
+  }
+
+  .hero-stat-card {
+    padding: 10px 14px;
+    flex: 1 1 45%;
+  }
+
+  .hero-stat-num {
+    font-size: 20px;
+  }
+}
+
+/* Quick Action Sheet Modal (Tactile Clay Style) */
+.quick-action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 26, 26, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@media (min-width: 640px) {
+  .quick-action-sheet-overlay {
+    align-items: center;
+  }
+}
+
+.quick-action-sheet-card {
+  background-color: var(--color-canvas);
+  border: 1.5px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 36px rgba(10, 26, 26, 0.2), 0 4px 0 var(--color-surface-strong);
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  animation: slideUpSpring 0.35s var(--ease-spring);
+}
+
+@keyframes slideUpSpring {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quick-action-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.quick-action-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-ink);
+  letter-spacing: -0.5px;
+}
+
+.quick-action-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-hairline);
+  background-color: var(--color-surface-soft);
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s var(--ease-spring);
+  box-shadow: 0 3px 0 var(--color-surface-strong);
+  width: 100%;
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 var(--color-surface-strong), 0 8px 16px rgba(10, 26, 26, 0.06);
+}
+
+.quick-action-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-surface-strong);
+}
+
+.quick-action-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+}
+
+.quick-action-text-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.quick-action-text-desc {
+  font-size: 12px;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+

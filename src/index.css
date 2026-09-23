@@ -1,0 +1,11 @@
+/* Global Index CSS - Pure CSS design system for Clay 2027 */
+@import './styles/theme.css';
+@import './styles/animations.css';
+@import './styles/components.css';
+@import './styles/dashboard.css';
+@import './styles/calendar.css';
+@import './styles/themes-view.css';
+@import './styles/wrapper-studio.css';
+@import './styles/blog.css';
+@import './styles/markdown-sheet.css';
+@import './styles/design-system.css';

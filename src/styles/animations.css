@@ -1,0 +1,150 @@
+/* Clay Animations & 3D Tactile Styling */
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1.5deg);
+  }
+}
+
+@keyframes floatAlt {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(-2deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes claySquish {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.88, 1.12);
+  }
+  75% {
+    transform: scale(1.08, 0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.clay-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.clay-float-alt {
+  animation: floatAlt 7s ease-in-out infinite;
+}
+
+.clay-squish-on-click:active {
+  animation: claySquish 0.35s ease-in-out;
+}
+
+/* Clay 3D tactile sphere & shapes */
+.clay-orb {
+  position: relative;
+  border-radius: 50%;
+  display: inline-block;
+  overflow: hidden;
+}
+
+.clay-orb::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 15%;
+  width: 35%;
+  height: 35%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 75%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.clay-orb-coral {
+  background: radial-gradient(circle at 35% 30%, #ff9688, #ff6b5a 60%, #c83d2c 100%);
+  box-shadow: 0 8px 16px rgba(255, 107, 90, 0.35);
+}
+
+.clay-orb-pink {
+  background: radial-gradient(circle at 35% 30%, #ff9688, #ff637c 60%, #c83d2c 100%);
+  box-shadow: 0 8px 16px rgba(255, 99, 124, 0.35);
+}
+
+.clay-orb-teal {
+  background: radial-gradient(circle at 35% 30%, #2f6565, #1a3a3a 60%, #0d1e1e 100%);
+  box-shadow: 0 8px 16px rgba(26, 58, 58, 0.4);
+}
+
+.clay-orb-lavender {
+  background: radial-gradient(circle at 35% 30%, #dcd2f8, #b8a4ed 60%, #876ece 100%);
+  box-shadow: 0 8px 16px rgba(184, 164, 237, 0.35);
+}
+
+.clay-orb-peach {
+  background: radial-gradient(circle at 35% 30%, #ffd0b5, #ffb084 60%, #dd7c45 100%);
+  box-shadow: 0 8px 16px rgba(255, 176, 132, 0.35);
+}
+
+.clay-orb-ochre {
+  background: radial-gradient(circle at 35% 30%, #f6d888, #e8b94a 60%, #ad821b 100%);
+  box-shadow: 0 8px 16px rgba(232, 185, 74, 0.35);
+}
+
+.clay-orb-mint {
+  background: radial-gradient(circle at 35% 30%, #cceae1, #a4d4c5 60%, #5fa18e 100%);
+  box-shadow: 0 8px 16px rgba(164, 212, 197, 0.35);
+}
+
+/* Clay checkbox */
+.clay-checkbox {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-canvas);
+  border: 2px solid var(--color-hairline);
+  box-shadow: 0 3px 0 rgba(10, 26, 26, 0.1), inset 0 2px 2px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s var(--ease-spring);
+  display: grid;
+  place-content: center;
+}
+
+.clay-checkbox:hover {
+  border-color: var(--color-ink);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(10, 26, 26, 0.15);
+}
+
+.clay-checkbox:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.clay-checkbox:checked::before {
+  content: "✓";
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+  transform: scale(1);
+  transition: transform 0.2s var(--ease-spring);
+}
