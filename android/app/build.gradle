@@ -21,15 +21,16 @@ android {
             def ksPath = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
             def ksFile = file(ksPath)
             if (ksFile.exists()) {
-                storeFile ksFile
-                def pass = System.getenv("KEYSTORE_PASSWORD")
-                storePassword (pass != null && !pass.trim().isEmpty()) ? pass : "Horizon2027#SecurePass!"
-                def alias = System.getenv("KEY_ALIAS")
-                keyAlias (alias != null && !alias.trim().isEmpty()) ? alias : "horizon-release"
-                def kpass = System.getenv("KEY_PASSWORD")
-                keyPassword (kpass != null && !kpass.trim().isEmpty()) ? kpass : "Horizon2027#SecurePass!"
-                v1SigningEnabled true
-                v2SigningEnabled true
+                def rawPass = System.getenv("KEYSTORE_PASSWORD")
+                def rawAlias = System.getenv("KEY_ALIAS")
+                def rawKeyPass = System.getenv("KEY_PASSWORD")
+
+                storeFile = ksFile
+                storePassword = (rawPass != null && !rawPass.trim().isEmpty()) ? rawPass : "Horizon2027#SecurePass!"
+                keyAlias = (rawAlias != null && !rawAlias.trim().isEmpty()) ? rawAlias : "horizon-release"
+                keyPassword = (rawKeyPass != null && !rawKeyPass.trim().isEmpty()) ? rawKeyPass : "Horizon2027#SecurePass!"
+                v1SigningEnabled = true
+                v2SigningEnabled = true
             }
         }
     }
