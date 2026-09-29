@@ -10,6 +10,7 @@ import {
   saveBlogEntryItem,
   deleteBlogEntryItem,
   syncLocalToSupabase,
+  syncSmartData,
 } from "./services/db";
 import { resetAllData } from "./utils/storage";
 import { Navbar } from "./components/Navbar";
@@ -145,9 +146,12 @@ export const App: React.FC = () => {
           setIsAuthModalOpen(true);
         }
         if (currentUser) {
-          await syncLocalToSupabase(currentUser.id);
+          const { themes, blogs } = await syncSmartData(currentUser.id);
+          setThemes(themes);
+          setBlogEntries(blogs);
+        } else {
+          loadInitialData();
         }
-        loadInitialData(currentUser?.id);
       });
 
       return () => {
@@ -520,11 +524,9 @@ export const App: React.FC = () => {
             } = await supabase.auth.getSession();
             setUser(session?.user ?? null);
             if (session?.user) {
-              await syncLocalToSupabase(session.user.id);
-              const loadedThemes = await getThemes(session.user.id);
-              const loadedBlogs = await getBlogEntries(session.user.id);
-              setThemes(loadedThemes);
-              setBlogEntries(loadedBlogs);
+              const { themes, blogs } = await syncSmartData(session.user.id);
+              setThemes(themes);
+              setBlogEntries(blogs);
             }
           }
         }}

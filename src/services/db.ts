@@ -183,6 +183,43 @@ export async function syncLocalToSupabase(userId: string): Promise<void> {
   }
 }
 
+// Sincronización inteligente: Si la nube ya tiene datos para el usuario, se priorizan y descargan.
+// Si la nube está vacía (usuario nuevo/primer acceso), se suben los datos locales a Supabase.
+export async function syncSmartData(userId: string): Promise<{ themes: BigTheme[]; blogs: BlogEntry[] }> {
+  if (!isSupabaseConfigured || !supabase || !userId) {
+    return {
+      themes: loadThemes(),
+      blogs: loadBlogEntries(),
+    };
+  }
+
+  try {
+    const [resThemes, resBlogs] = await Promise.all([
+      supabase.from('big_themes').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('blog_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    ]);
+
+    const cloudThemesCount = resThemes.count ?? 0;
+    const cloudBlogsCount = resBlogs.count ?? 0;
+
+    // Si la nube está completamente vacía para este usuario, subimos la información local
+    if (cloudThemesCount === 0 && cloudBlogsCount === 0) {
+      await syncLocalToSupabase(userId);
+    }
+  } catch (err) {
+    console.warn('Error verificando datos de nube previos, intentando sincronización directa:', err);
+  }
+
+  // Descargamos los datos actualizados de Supabase
+  const [themes, blogs] = await Promise.all([
+    getThemes(userId),
+    getBlogEntries(userId),
+  ]);
+
+  return { themes, blogs };
+}
+
+
 // Health check to verify real records in Supabase PostgreSQL under the authenticated user
 export interface SupabaseHealthCheck {
   connected: boolean;
