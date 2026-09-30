@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { checkSupabaseHealth, syncSmartData, syncLocalToSupabase, SupabaseHealthCheck } from "../services/db";
 import {
   X,
+  Lock,
   Mail,
   AlertCircle,
   CheckCircle2,
@@ -15,17 +16,18 @@ import {
   Check,
   Sparkles,
   ArrowLeft,
-  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from "lucide-react";
 import { FireGoatLogo } from "./FireGoatLogo";
 
-export type AuthStep = "email" | "otp";
-export type AuthMode = AuthStep | "signin" | "signup" | "magiclink" | "forgot" | "update-password";
+export type AuthMode = "signin" | "signup" | "otp" | "forgot" | "update-password";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode?: string;
+  initialMode?: string | AuthMode;
   user: User | null | any;
   onSignOut: () => void;
   onAuthSuccess?: () => void;
@@ -37,30 +39,35 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
+  initialMode = "signin",
   user,
   onSignOut,
   onAuthSuccess,
 }) => {
-  // Step state: 'email' (request OTP) or 'otp' (verify 6-digit code)
-  const [step, setStep] = useState<AuthStep>("email");
-  const [email, setEmail] = useState("");
-  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  // Navigation mode
+  const [mode, setMode] = useState<AuthMode>((initialMode as AuthMode) || "signin");
   
-  // Cooldown timer for resending OTP
+  // Form fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  // OTP 6-digit code state
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpSent, setOtpSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Status and feedback
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Health check state (when authenticated)
+  // Cloud Health check state (when authenticated)
   const [healthStatus, setHealthStatus] = useState<SupabaseHealthCheck | null>(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [syncing, setSyncing] = useState(false);
-
-  // References for OTP 6 inputs
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Health check query
   const runHealthCheck = useCallback(async () => {
@@ -71,20 +78,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setCheckingHealth(false);
   }, [user]);
 
-  // Reset state on modal open
+  // Sync mode with prop changes when modal opens
   useEffect(() => {
     if (isOpen) {
+      if (initialMode && (initialMode === "signin" || initialMode === "signup" || initialMode === "otp" || initialMode === "forgot" || initialMode === "update-password")) {
+        setMode(initialMode as AuthMode);
+      }
       setErrorMsg(null);
       setSuccessMsg(null);
-      setStep("email");
-      setOtpDigits(["", "", "", "", "", ""]);
       if (user) {
         runHealthCheck();
       }
     }
-  }, [isOpen, user, runHealthCheck]);
+  }, [isOpen, initialMode, user, runHealthCheck]);
 
-  // Countdown timer effect
+  // Countdown timer effect for OTP resend
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const interval = setInterval(() => {
@@ -93,16 +101,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  // Focus the first OTP input when transitioning to OTP step
+  // Focus the first OTP input when transitioning to OTP code entry
   useEffect(() => {
-    if (step === "otp") {
-      setTimeout(() => {
+    if (mode === "otp" && otpSent) {
+      const timer = setTimeout(() => {
         inputRefs.current[0]?.focus();
       }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [step]);
+  }, [mode, otpSent]);
 
-  // Manual cloud sync handler
+  // Manual cloud sync handler (authenticated)
   const handleManualSync = async () => {
     if (!user) return;
     setSyncing(true);
@@ -119,32 +128,179 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // STEP 1: Send OTP to email
-  const handleSendOtp = async (targetEmail?: string) => {
+  if (!isOpen) return null;
+
+  // Validation helper
+  const getCleanEmail = (): string => {
+    const clean = email.trim();
+    if (!clean || !clean.includes("@") || clean.toLowerCase() === "2027") {
+      throw new Error(
+        "Debes ingresar un correo electrónico válido (ej: velezlucasiker1@gmail.com). Evita usar \"2027\" que es el nombre del proyecto de base de datos."
+      );
+    }
+    return clean;
+  };
+
+  // Trigger post-auth cloud synchronization and celebrate
+  const handleAuthSuccessCelebration = async (userId: string, successMessage: string) => {
+    try {
+      await syncSmartData(userId);
+    } catch (syncErr) {
+      console.warn("Smart sync error on auth success:", syncErr);
+    }
+
+    setSuccessMsg(successMessage);
+
+    try {
+      confetti({
+        particleCount: 65,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch {}
+
+    setTimeout(() => {
+      onAuthSuccess?.();
+      onClose();
+    }, 1100);
+  };
+
+  // 1. Direct Password Login (SIN REDIRECCIÓN, DIRECTO CON SUPABASE)
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
 
     if (!isSupabaseConfigured || !supabase) {
-      setErrorMsg("Supabase no está configurado. Revisa tu archivo .env.local.");
+      setErrorMsg("Supabase no está configurado en el cliente.");
       return;
     }
 
-    const emailToSend = (targetEmail || email).trim();
-
-    if (!emailToSend || !emailToSend.includes("@")) {
-      setErrorMsg("Por favor ingresa un correo electrónico válido (ej: velezlucasiker1@gmail.com).");
+    let cleanEmail = "";
+    try {
+      cleanEmail = getCleanEmail();
+    } catch (valErr: any) {
+      setErrorMsg(valErr.message);
       return;
     }
 
-    if (emailToSend.toLowerCase() === "2027") {
-      setErrorMsg("Debes ingresar un correo electrónico, no el nombre del proyecto \"2027\".");
+    if (!password) {
+      setErrorMsg("Ingresa tu contraseña para continuar.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Supabase signInWithOtp sends the 6-digit OTP code to the email
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        if (error.message.toLowerCase().includes("invalid login credentials")) {
+          throw new Error(
+            "Credenciales incorrectas. Verifica tu correo y contraseña. Si no recuerdas tu contraseña, puedes usar la pestaña \"Código por Correo (OTP)\" para entrar directamente."
+          );
+        }
+        if (error.message.toLowerCase().includes("email not confirmed")) {
+          throw new Error(
+            "Tu correo aún no ha sido confirmado. Puedes ingresar directamente solicitando un código en la pestaña \"Código por Correo (OTP)\"."
+          );
+        }
+        throw error;
+      }
+
+      if (data?.user) {
+        await handleAuthSuccessCelebration(
+          data.user.id,
+          "¡Sesión iniciada con éxito! Sincronizando con la nube..."
+        );
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error al iniciar sesión.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Direct Account Signup (SIN REDIRECCIÓN A LOCALHOST)
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMsg("Supabase no está configurado en el cliente.");
+      return;
+    }
+
+    let cleanEmail = "";
+    try {
+      cleanEmail = getCleanEmail();
+    } catch (valErr: any) {
+      setErrorMsg(valErr.message);
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Direct registration without redirecting to localhost
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data?.session && data.user) {
+        // Email confirmations disabled: immediate login
+        await handleAuthSuccessCelebration(
+          data.user.id,
+          "¡Cuenta creada e iniciada con éxito!"
+        );
+      } else {
+        // Confirmation required: switch to OTP mode so user enters code directly without link
+        setOtpSent(true);
+        setMode("otp");
+        setSuccessMsg(
+          "¡Cuenta registrada! Te enviamos un código de verificación por correo. Ingrésalo a continuación para activar tu cuenta."
+        );
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error al registrar la cuenta.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Send 6-digit OTP Code (SIN REDIRECCIÓN A LOCALHOST)
+  const handleSendOtp = async (targetEmail?: string) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMsg("Supabase no está configurado en el cliente.");
+      return;
+    }
+
+    const emailToSend = (targetEmail || email).trim();
+    if (!emailToSend || !emailToSend.includes("@") || emailToSend.toLowerCase() === "2027") {
+      setErrorMsg("Ingresa un correo electrónico válido para recibir el código.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // NOTE: We deliberately do NOT pass emailRedirectTo to avoid localhost redirects.
+      // The user will enter the 6-digit code directly in the app.
       const { error } = await supabase.auth.signInWithOtp({
         email: emailToSend,
         options: {
@@ -153,7 +309,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       if (error) {
-        // Handle common rate limit
         if (error.message.toLowerCase().includes("rate") || error.message.toLowerCase().includes("seconds")) {
           throw new Error("Por seguridad, debes esperar antes de solicitar otro código. Intenta de nuevo en un momento.");
         }
@@ -161,10 +316,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       setEmail(emailToSend);
-      setStep("otp");
+      setOtpSent(true);
       setOtpDigits(["", "", "", "", "", ""]);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setSuccessMsg(`¡Código de 6 dígitos enviado a ${emailToSend}! Revisa tu bandeja de entrada o spam.`);
+      setSuccessMsg(`¡Código numérico enviado a ${emailToSend}! Ingrésalo abajo.`);
     } catch (err: any) {
       setErrorMsg(err.message || "Error al enviar el código de verificación.");
     } finally {
@@ -172,7 +327,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // STEP 2: Verify 6-digit OTP code
+  // 4. Verify 6-digit OTP Code (DIRECTO IN-APP CON SUPABASE)
   const handleVerifyOtp = async (codeToVerify?: string) => {
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -192,7 +347,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      // Verify the 6-digit OTP code with Supabase Auth v2
+      // In-app direct OTP token verification
       const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token,
@@ -201,41 +356,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       if (error) {
         if (error.message.toLowerCase().includes("expired") || error.message.toLowerCase().includes("invalid")) {
-          throw new Error("El código de verificación es incorrecto o ha expirado. Por favor verifica o solicita un nuevo código.");
+          throw new Error("El código de verificación es incorrecto o ha expirado. Por favor verifica o solicita uno nuevo.");
         }
         throw error;
       }
 
       if (data?.user) {
-        // Run smart sync: upload offline work if cloud is empty, or pull user's cloud data
-        await syncSmartData(data.user.id);
-
-        setSuccessMsg("¡Código verificado con éxito! Sesión iniciada.");
-
-        // Celebrate success with confetti
-        try {
-          confetti({
-            particleCount: 60,
-            spread: 70,
-            origin: { y: 0.6 },
-          });
-        } catch {}
-
-        setTimeout(() => {
-          onAuthSuccess?.();
-          onClose();
-        }, 1100);
+        await handleAuthSuccessCelebration(
+          data.user.id,
+          "¡Código verificado con éxito! Sesión iniciada."
+        );
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "No se pudo verificar el código de verificación.");
+      setErrorMsg(err.message || "No se pudo verificar el código.");
     } finally {
       setLoading(false);
     }
   };
 
-  // OTP Input event handlers (Auto-advance, backspace, paste)
+  // OTP Input handlers (Auto-advance, backspace, paste)
   const handleDigitChange = (index: number, val: string) => {
-    // Only accept numeric characters
     const cleanVal = val.replace(/\D/g, "");
     if (!cleanVal) {
       const nextDigits = [...otpDigits];
@@ -244,18 +384,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // Single digit input
     const char = cleanVal.slice(-1);
     const nextDigits = [...otpDigits];
     nextDigits[index] = char;
     setOtpDigits(nextDigits);
 
-    // Auto-advance to next box
     if (index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // If all 6 digits are filled, automatically trigger verification
     const completeToken = nextDigits.join("");
     if (completeToken.length === 6 && !nextDigits.includes("")) {
       handleVerifyOtp(completeToken);
@@ -265,7 +402,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace") {
       if (!otpDigits[index] && index > 0) {
-        // Move to previous input on backspace if current is empty
         inputRefs.current[index - 1]?.focus();
         const nextDigits = [...otpDigits];
         nextDigits[index - 1] = "";
@@ -297,13 +433,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  // 5. Update Password (IN-APP)
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMsg("Supabase no está configurado.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        await handleAuthSuccessCelebration(
+          data.user.id,
+          "¡Contraseña actualizada correctamente! Sesión activa."
+        );
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error al actualizar la contraseña.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        style={{ maxWidth: 490, maxHeight: "90vh", overflowY: "auto" }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Top Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <FireGoatLogo size={28} />
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18 }}>
@@ -312,14 +493,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-muted)", padding: 4 }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--color-muted)",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
             aria-label="Cerrar modal"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* 1. USER IS AUTHENTICATED: Cloud Verification Dashboard */}
+        {/* ======================================================== */}
+        {/* 1. USUARIO AUTENTICADO: Panel de Sincronización en Nube */}
+        {/* ======================================================== */}
         {user ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div
@@ -333,12 +525,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 border: "1px solid rgba(34, 197, 94, 0.25)",
               }}
             >
-              <CheckCircle2 size={22} color="var(--color-success)" />
-              <div>
+              <CheckCircle2 size={22} color="var(--color-success)" style={{ flexShrink: 0 }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "var(--color-ink)" }}>
                   Sesión activa con Supabase
                 </div>
-                <div style={{ fontSize: 13, color: "var(--color-body)" }}>{user.email}</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "var(--color-body)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {user.email}
+                </div>
               </div>
             </div>
 
@@ -366,7 +568,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               style={{
                 backgroundColor: "var(--color-surface-soft)",
                 borderRadius: "var(--radius-lg)",
-                padding: 20,
+                padding: 18,
                 border: "1px solid var(--color-hairline)",
               }}
             >
@@ -381,7 +583,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Database size={16} color="var(--color-brand-teal)" />
                   <span style={{ fontWeight: 700, fontSize: 14 }}>
-                    Registros verificados en PostgreSQL:
+                    Registros en PostgreSQL (Nube):
                   </span>
                 </div>
                 <button
@@ -473,10 +675,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className="btn-secondary btn-sm"
                 onClick={handleManualSync}
                 disabled={syncing}
-                style={{ flex: 1, height: 40 }}
+                style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
                 <Cloud size={15} />
-                <span>{syncing ? "Sincronizando..." : "Sincronizar datos locales a la nube"}</span>
+                <span>{syncing ? "Sincronizando..." : "Sincronizar a la nube"}</span>
               </button>
 
               <button
@@ -485,7 +687,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   onSignOut();
                   onClose();
                 }}
-                style={{ color: "var(--color-error)", height: 40 }}
+                style={{
+                  color: "var(--color-error)",
+                  height: 42,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
               >
                 <LogOut size={15} />
                 <span>Cerrar Sesión</span>
@@ -493,7 +701,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
         ) : !isSupabaseConfigured ? (
-          /* 2. SUPABASE NOT CONFIGURED */
+          /* ======================================================== */
+          /* 2. SUPABASE NO CONFIGURADO                               */
+          /* ======================================================== */
           <div
             style={{
               backgroundColor: "var(--color-surface-soft)",
@@ -508,124 +718,145 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               Conecta tu base de datos Supabase
             </h4>
             <p className="body-sm" style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
-              Para activar la sincronización en la nube multi-dispositivo, verifica tu archivo{" "}
-              <code>.env.local</code> con tus claves de proyecto de Supabase.
+              Para activar la sincronización en la nube, verifica tus claves de proyecto de Supabase.
             </p>
-            <div
-              style={{
-                background: "#ffffff",
-                padding: "10px 14px",
-                borderRadius: "var(--radius-md)",
-                fontSize: 12,
-                textAlign: "left",
-                fontFamily: "monospace",
-                border: "1px solid var(--color-hairline)",
-              }}
-            >
-              VITE_SUPABASE_URL=https://tu-id.supabase.co
-              <br />
-              VITE_SUPABASE_ANON_KEY=tu-anon-key
-            </div>
           </div>
-        ) : step === "email" ? (
-          /* 3. STEP 1: SOLICITAR CÓDIGO AL CORREO (NO PASSWORD, NO USERNAME) */
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleSendOtp();
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 16 }}
-          >
-            <div>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "3px 10px",
-                  borderRadius: "var(--radius-pill)",
-                  backgroundColor: "rgba(26, 58, 58, 0.08)",
-                  color: "var(--color-brand-teal)",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  marginBottom: 8,
-                }}
-              >
-                <Sparkles size={12} />
-                <span>Acceso directo sin contraseñas</span>
-              </div>
-              <h3 className="title-md" style={{ fontFamily: "var(--font-display)", marginBottom: 4 }}>
-                Iniciar sesión con código
-              </h3>
-              <p className="body-sm" style={{ fontSize: 13, color: "var(--color-body)" }}>
-                Recibe un código de 6 dígitos en tu correo para acceder directamente y sincronizar tu información.
-              </p>
-            </div>
-
-            {errorMsg && (
+        ) : (
+          /* ======================================================== */
+          /* 3. USUARIO NO AUTENTICADO: MODAL MULTI-MODO DIRECTO     */
+          /* ======================================================== */
+          <div>
+            {/* Navegación por pestañas directas (Como estaba antes + Código OTP) */}
+            {mode !== "update-password" && (
               <div
                 style={{
                   display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  padding: "10px 14px",
-                  borderRadius: "var(--radius-md)",
-                  backgroundColor: "#fef2f2",
-                  color: "var(--color-error)",
-                  fontSize: 13,
-                  border: "1px solid #fecaca",
-                  lineHeight: 1.4,
+                  gap: 6,
+                  padding: 4,
+                  backgroundColor: "var(--color-surface-soft)",
+                  borderRadius: "var(--radius-pill)",
+                  marginBottom: 18,
+                  border: "1px solid var(--color-hairline)",
                 }}
               >
-                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>{errorMsg}</div>
-              </div>
-            )}
-
-            {/* Email Field */}
-            <div>
-              <label
-                htmlFor="auth-email"
-                className="caption-uppercase"
-                style={{ display: "block", marginBottom: 6 }}
-              >
-                Correo Electrónico
-              </label>
-              <div style={{ position: "relative" }}>
-                <Mail
-                  size={16}
-                  style={{
-                    position: "absolute",
-                    left: 14,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--color-muted)",
-                  }}
-                />
-                <input
-                  id="auth-email"
-                  name="email"
-                  type="email"
-                  required
-                  autoFocus
-                  inputMode="email"
-                  autoComplete="email"
-                  className="input-text"
-                  style={{ paddingLeft: 38 }}
-                  placeholder="ej: velezlucasiker1@gmail.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
-              </div>
-
-              {/* Quick Fill Button */}
-              <div style={{ marginTop: 8 }}>
                 <button
                   type="button"
                   onClick={() => {
-                    setEmail(REGISTERED_HINT_EMAIL);
-                    handleSendOtp(REGISTERED_HINT_EMAIL);
+                    setMode("signin");
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
                   }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    border: "none",
+                    backgroundColor: mode === "signin" ? "#ffffff" : "transparent",
+                    color: mode === "signin" ? "var(--color-ink)" : "var(--color-muted)",
+                    fontWeight: mode === "signin" ? 700 : 500,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    boxShadow: mode === "signin" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Iniciar Sesión
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("otp");
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    border: "none",
+                    backgroundColor: mode === "otp" ? "#ffffff" : "transparent",
+                    color: mode === "otp" ? "var(--color-ink)" : "var(--color-muted)",
+                    fontWeight: mode === "otp" ? 700 : 500,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    boxShadow: mode === "otp" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 5,
+                  }}
+                >
+                  <Sparkles size={13} color="var(--color-brand-ochre)" />
+                  <span>Código (OTP)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signup");
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    border: "none",
+                    backgroundColor: mode === "signup" ? "#ffffff" : "transparent",
+                    color: mode === "signup" ? "var(--color-ink)" : "var(--color-muted)",
+                    fontWeight: mode === "signup" ? 700 : 500,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    boxShadow: mode === "signup" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Registrarse
+                </button>
+              </div>
+            )}
+
+            {/* Subtítulo descriptivo */}
+            <div style={{ marginBottom: 14 }}>
+              <h3 className="title-md" style={{ fontFamily: "var(--font-display)", marginBottom: 4 }}>
+                {mode === "signin" && "Iniciar Sesión en Horizon"}
+                {mode === "signup" && "Crear Cuenta en Horizon"}
+                {mode === "otp" && (otpSent ? "Introduce tu código de 6 dígitos" : "Acceso con código por correo")}
+                {mode === "forgot" && "Recuperar Contraseña"}
+                {mode === "update-password" && "Definir Nueva Contraseña"}
+              </h3>
+              <p className="body-sm" style={{ fontSize: 13, color: "var(--color-body)" }}>
+                {mode === "signin" && "Ingresa con tu correo y contraseña directo a Supabase. Sin redirecciones."}
+                {mode === "signup" && "Crea tu cuenta para sincronizar tus Wrappers y bitácoras en PostgreSQL."}
+                {mode === "otp" && (otpSent ? `Ingresa el código que enviamos a ${email} para entrar.` : "Recibe un código numérico en tu correo e ingrésalo en la app sin hacer clic en enlaces.")}
+                {mode === "forgot" && "Ingresa tu correo para recibir las instrucciones seguras."}
+                {mode === "update-password" && "Escribe tu nueva contraseña para asegurarla en Supabase."}
+              </p>
+            </div>
+
+            {/* Quick Fill Button */}
+            {mode !== "update-password" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md)",
+                  backgroundColor: "var(--color-surface-soft)",
+                  border: "1px solid var(--color-hairline)",
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--color-body)" }}>
+                  <ShieldCheck size={14} color="var(--color-brand-teal)" />
+                  <span>Tu cuenta principal:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEmail(REGISTERED_HINT_EMAIL)}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -641,75 +872,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                   }}
                 >
-                  <KeyRound size={12} />
-                  <span>Usar {REGISTERED_HINT_EMAIL}</span>
+                  <Mail size={12} />
+                  <span>{REGISTERED_HINT_EMAIL}</span>
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !email.trim()}
-              className="btn-primary clay-button-interactive"
-              style={{
-                marginTop: 6,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                height: 44,
-              }}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={16} className="clay-float-slow" />
-                  <span>Enviando código...</span>
-                </>
-              ) : (
-                <>
-                  <Mail size={16} />
-                  <span>Enviar código al correo</span>
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          /* 4. STEP 2: INTRODUCIR CÓDIGO DE 6 DÍGITOS (OTP) */
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("email");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
+            {/* Mensajes de Feedback */}
+            {errorMsg && (
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--color-muted)",
-                  fontSize: 12,
-                  fontWeight: 600,
                   display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  marginBottom: 8,
-                  padding: 0,
+                  alignItems: "flex-start",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: "var(--radius-md)",
+                  backgroundColor: "#fef2f2",
+                  color: "var(--color-error)",
+                  fontSize: 13,
+                  border: "1px solid #fecaca",
+                  lineHeight: 1.4,
+                  marginBottom: 14,
                 }}
               >
-                <ArrowLeft size={14} />
-                <span>Cambiar correo ({email})</span>
-              </button>
-
-              <h3 className="title-md" style={{ fontFamily: "var(--font-display)", marginBottom: 4 }}>
-                Introduce el código de 6 dígitos
-              </h3>
-              <p className="body-sm" style={{ fontSize: 13, color: "var(--color-body)" }}>
-                Enviamos un código numérico a <strong>{email}</strong>. Ingrésalo para entrar directamente.
-              </p>
-            </div>
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>{errorMsg}</div>
+              </div>
+            )}
 
             {successMsg && (
               <div
@@ -724,6 +913,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   fontSize: 13,
                   border: "1px solid rgba(34, 197, 94, 0.25)",
                   lineHeight: 1.4,
+                  marginBottom: 14,
                 }}
               >
                 <CheckCircle2 size={18} color="var(--color-success)" style={{ flexShrink: 0, marginTop: 2 }} />
@@ -731,132 +921,674 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {errorMsg && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  padding: "10px 14px",
-                  borderRadius: "var(--radius-md)",
-                  backgroundColor: "#fef2f2",
-                  color: "var(--color-error)",
-                  fontSize: 13,
-                  border: "1px solid #fecaca",
-                  lineHeight: 1.4,
-                }}
-              >
-                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>{errorMsg}</div>
+            {/* ----------------------------------------------------------------- */}
+            {/* MODO A: INICIAR SESIÓN CON EMAIL Y CONTRASEÑA                    */}
+            {/* ----------------------------------------------------------------- */}
+            {mode === "signin" && (
+              <form onSubmit={handlePasswordSignIn} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Email */}
+                <div>
+                  <label htmlFor="auth-signin-email" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Correo Electrónico
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Mail
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-signin-email"
+                      type="email"
+                      required
+                      inputMode="email"
+                      autoComplete="username email"
+                      className="input-text"
+                      style={{ paddingLeft: 38 }}
+                      placeholder="ej: velezlucasiker1@gmail.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label htmlFor="auth-signin-password" className="caption-uppercase" style={{ display: "block", marginBottom: 0 }}>
+                      Contraseña
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("forgot");
+                        setErrorMsg(null);
+                        setSuccessMsg(null);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--color-muted)",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                      }}
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-signin-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      autoComplete="current-password"
+                      className="input-text"
+                      style={{ paddingLeft: 38, paddingRight: 40 }}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--color-muted)",
+                        padding: 4,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botón de envío directo */}
+                <button
+                  type="submit"
+                  disabled={loading || !email.trim() || !password}
+                  className="btn-primary clay-button-interactive"
+                  style={{
+                    marginTop: 6,
+                    height: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw size={16} className="clay-float-slow" />
+                      <span>Iniciando sesión...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Iniciar Sesión</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Alternativa rápida: OTP */}
+                <div style={{ textAlign: "center", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("otp");
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      color: "var(--color-brand-teal)",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Sparkles size={14} color="var(--color-brand-ochre)" />
+                    <span>¿Prefieres entrar sin contraseña? Usa código por correo</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ----------------------------------------------------------------- */}
+            {/* MODO B: CÓDIGO POR CORREO (OTP 6 DÍGITOS - CERO REDIRECCIONES)   */}
+            {/* ----------------------------------------------------------------- */}
+            {mode === "otp" && (
+              <div>
+                {!otpSent ? (
+                  /* Paso 1: Enviar código */
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      handleSendOtp();
+                    }}
+                    style={{ display: "flex", flexDirection: "column", gap: 14 }}
+                  >
+                    <div>
+                      <label htmlFor="auth-otp-email" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                        Enviar código a tu correo
+                      </label>
+                      <div style={{ position: "relative" }}>
+                        <Mail
+                          size={16}
+                          style={{
+                            position: "absolute",
+                            left: 14,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "var(--color-muted)",
+                          }}
+                        />
+                        <input
+                          id="auth-otp-email"
+                          type="email"
+                          required
+                          inputMode="email"
+                          autoComplete="email"
+                          className="input-text"
+                          style={{ paddingLeft: 38 }}
+                          placeholder="ej: velezlucasiker1@gmail.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || !email.trim()}
+                      className="btn-primary clay-button-interactive"
+                      style={{
+                        marginTop: 6,
+                        height: 44,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                      }}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw size={16} className="clay-float-slow" />
+                          <span>Enviando código...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mail size={16} />
+                          <span>Enviar código numérico de 6 dígitos</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  /* Paso 2: Introducir casillas de 6 dígitos */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setErrorMsg(null);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--color-muted)",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: 0,
+                        }}
+                      >
+                        <ArrowLeft size={14} />
+                        <span>Cambiar correo ({email})</span>
+                      </button>
+                    </div>
+
+                    {/* Cuadrícula de 6 dígitos para celular y web */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        marginTop: 4,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {otpDigits.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={el => { inputRefs.current[index] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete={index === 0 ? "one-time-code" : "off"}
+                          maxLength={1}
+                          value={digit}
+                          onChange={e => handleDigitChange(index, e.target.value)}
+                          onKeyDown={e => handleKeyDown(index, e)}
+                          onPaste={handlePaste}
+                          style={{
+                            width: "14%",
+                            maxWidth: 54,
+                            height: 54,
+                            fontSize: 22,
+                            fontWeight: 800,
+                            textAlign: "center",
+                            borderRadius: "var(--radius-md)",
+                            border: digit
+                              ? "2px solid var(--color-ink)"
+                              : "1px solid var(--color-hairline)",
+                            backgroundColor: "var(--color-canvas)",
+                            outline: "none",
+                            boxShadow: digit ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                            transition: "all 0.15s ease",
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Botón de verificar */}
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyOtp()}
+                      disabled={loading || otpDigits.join("").length !== 6}
+                      className="btn-primary clay-button-interactive"
+                      style={{
+                        height: 44,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                      }}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw size={16} className="clay-float-slow" />
+                          <span>Verificando código...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          <span>Verificar e Iniciar Sesión</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Reenviar código */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        paddingTop: 8,
+                        borderTop: "1px solid var(--color-hairline)",
+                      }}
+                    >
+                      {resendCooldown > 0 ? (
+                        <span style={{ fontSize: 13, color: "var(--color-muted)" }}>
+                          Reenviar código disponible en <strong>{resendCooldown}s</strong>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSendOtp()}
+                          disabled={loading}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "var(--color-brand-teal)",
+                            textDecoration: "underline",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <RefreshCw size={13} />
+                          <span>¿No recibiste el correo? Reenviar código</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 6-Digit OTP Box Grid */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 8,
-                marginTop: 6,
-                marginBottom: 6,
-              }}
-            >
-              {otpDigits.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={el => { inputRefs.current[index] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete={index === 0 ? "one-time-code" : "off"}
-                  maxLength={1}
-                  value={digit}
-                  onChange={e => handleDigitChange(index, e.target.value)}
-                  onKeyDown={e => handleKeyDown(index, e)}
-                  onPaste={handlePaste}
+            {/* ----------------------------------------------------------------- */}
+            {/* MODO C: REGISTRARSE CON EMAIL Y CONTRASEÑA                       */}
+            {/* ----------------------------------------------------------------- */}
+            {mode === "signup" && (
+              <form onSubmit={handleSignUp} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Email */}
+                <div>
+                  <label htmlFor="auth-signup-email" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Correo Electrónico
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Mail
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-signup-email"
+                      type="email"
+                      required
+                      inputMode="email"
+                      autoComplete="username email"
+                      className="input-text"
+                      style={{ paddingLeft: 38 }}
+                      placeholder="ej: velezlucasiker1@gmail.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label htmlFor="auth-signup-password" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Contraseña (mínimo 6 caracteres)
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-signup-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="input-text"
+                      style={{ paddingLeft: 38, paddingRight: 40 }}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--color-muted)",
+                        padding: 4,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !email.trim() || password.length < 6}
+                  className="btn-primary clay-button-interactive"
                   style={{
-                    width: 52,
-                    height: 56,
-                    fontSize: 24,
-                    fontWeight: 800,
-                    textAlign: "center",
-                    borderRadius: "var(--radius-md)",
-                    border: digit
-                      ? "2px solid var(--color-ink)"
-                      : "1px solid var(--color-hairline)",
-                    backgroundColor: "var(--color-canvas)",
-                    outline: "none",
-                    boxShadow: digit ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-                    transition: "all 0.15s ease",
+                    marginTop: 6,
+                    height: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
                   }}
-                />
-              ))}
-            </div>
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw size={16} className="clay-float-slow" />
+                      <span>Creando cuenta...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Registrarme y Sincronizar</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
 
-            {/* Verify Button */}
-            <button
-              type="button"
-              onClick={() => handleVerifyOtp()}
-              disabled={loading || otpDigits.join("").length !== 6}
-              className="btn-primary clay-button-interactive"
-              style={{
-                height: 44,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={16} className="clay-float-slow" />
-                  <span>Verificando código...</span>
-                </>
-              ) : (
-                <>
-                  <Check size={16} />
-                  <span>Verificar e Iniciar Sesión</span>
-                </>
-              )}
-            </button>
-
-            {/* Resend Code Section */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                paddingTop: 8,
-                borderTop: "1px solid var(--color-hairline)",
-              }}
-            >
-              {resendCooldown > 0 ? (
-                <span style={{ fontSize: 13, color: "var(--color-muted)" }}>
-                  Reenviar código disponible en <strong>{resendCooldown}s</strong>
-                </span>
-              ) : (
+            {/* ----------------------------------------------------------------- */}
+            {/* MODO D: RECUPERAR CONTRASEÑA                                     */}
+            {/* ----------------------------------------------------------------- */}
+            {mode === "forgot" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <button
                   type="button"
-                  onClick={() => handleSendOtp()}
-                  disabled={loading}
+                  onClick={() => {
+                    setMode("signin");
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
                   style={{
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    fontSize: 13,
+                    color: "var(--color-muted)",
+                    fontSize: 12,
                     fontWeight: 600,
-                    color: "var(--color-brand-teal)",
-                    textDecoration: "underline",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 4,
+                    padding: 0,
                   }}
                 >
-                  <RefreshCw size={13} />
-                  <span>¿No recibiste el correo? Reenviar código</span>
+                  <ArrowLeft size={14} />
+                  <span>Volver al inicio de sesión</span>
                 </button>
-              )}
-            </div>
+
+                <p className="body-sm" style={{ fontSize: 13, color: "var(--color-body)" }}>
+                  Para recuperar tu acceso de forma segura en tu celular y web sin depender de enlaces externos, te enviaremos un código numérico a tu correo.
+                </p>
+
+                <div>
+                  <label htmlFor="auth-forgot-email" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Correo Electrónico
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Mail
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-forgot-email"
+                      type="email"
+                      required
+                      inputMode="email"
+                      className="input-text"
+                      style={{ paddingLeft: 38 }}
+                      placeholder="ej: velezlucasiker1@gmail.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendOtp()}
+                  disabled={loading || !email.trim()}
+                  className="btn-primary clay-button-interactive"
+                  style={{
+                    height: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw size={16} className="clay-float-slow" />
+                      <span>Enviando código...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Enviar código de recuperación</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* ----------------------------------------------------------------- */}
+            {/* MODO E: ACTUALIZAR CONTRASEÑA                                    */}
+            {/* ----------------------------------------------------------------- */}
+            {mode === "update-password" && (
+              <form onSubmit={handleUpdatePassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label htmlFor="auth-new-password" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Nueva Contraseña
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-new-password"
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="input-text"
+                      style={{ paddingLeft: 38 }}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="auth-confirm-password" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
+                    Confirmar Nueva Contraseña
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Lock
+                      size={16}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--color-muted)",
+                      }}
+                    />
+                    <input
+                      id="auth-confirm-password"
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="input-text"
+                      style={{ paddingLeft: 38 }}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || password.length < 6 || password !== confirmPassword}
+                  className="btn-primary clay-button-interactive"
+                  style={{
+                    height: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw size={16} className="clay-float-slow" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Guardar Nueva Contraseña</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>
