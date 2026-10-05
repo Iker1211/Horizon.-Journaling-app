@@ -129,6 +129,11 @@ export const App: React.FC = () => {
       setBlogEntries(loadedBlogs);
     };
 
+    if (window.location.hash.includes("type=recovery") || window.location.href.includes("type=recovery")) {
+      setAuthInitialMode("update-password");
+      setIsAuthModalOpen(true);
+    }
+
     if (isSupabaseConfigured && supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         const currentUser = session?.user ?? null;

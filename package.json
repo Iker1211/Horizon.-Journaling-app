@@ -1,13 +1,14 @@
 {
   "name": "horizon",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "assets:generate": "node scripts/generate-assets.mjs",
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android"
   },

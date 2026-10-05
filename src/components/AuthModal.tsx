@@ -464,6 +464,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (error) throw error;
 
       if (data?.user) {
+        setPassword("");
+        setConfirmPassword("");
+        setMode("signin");
         await handleAuthSuccessCelebration(
           data.user.id,
           "¡Contraseña actualizada correctamente! Sesión activa."
@@ -512,7 +515,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* ======================================================== */}
         {/* 1. USUARIO AUTENTICADO: Panel de Sincronización en Nube */}
         {/* ======================================================== */}
-        {user ? (
+        {user && mode !== "update-password" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div
               style={{
@@ -670,35 +673,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
               <button
                 className="btn-secondary btn-sm"
                 onClick={handleManualSync}
                 disabled={syncing}
-                style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
                 <Cloud size={15} />
-                <span>{syncing ? "Sincronizando..." : "Sincronizar a la nube"}</span>
+                <span>{syncing ? "Sincronizando..." : "Sincronizar"}</span>
               </button>
 
               <button
                 className="btn-secondary btn-sm"
                 onClick={() => {
-                  onSignOut();
-                  onClose();
+                  setMode("update-password");
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
                 }}
-                style={{
-                  color: "var(--color-error)",
-                  height: 42,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
+                style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
-                <LogOut size={15} />
-                <span>Cerrar Sesión</span>
+                <Lock size={15} />
+                <span>Cambiar Contraseña</span>
               </button>
             </div>
+
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => {
+                onSignOut();
+                onClose();
+              }}
+              style={{
+                color: "var(--color-error)",
+                height: 40,
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <LogOut size={15} />
+              <span>Cerrar Sesión</span>
+            </button>
           </div>
         ) : !isSupabaseConfigured ? (
           /* ======================================================== */
@@ -1503,6 +1521,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {/* ----------------------------------------------------------------- */}
             {mode === "update-password" && (
               <form onSubmit={handleUpdatePassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signin");
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--color-muted)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: 0,
+                    }}
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Volver a mi perfil</span>
+                  </button>
+                )}
                 <div>
                   <label htmlFor="auth-new-password" className="caption-uppercase" style={{ display: "block", marginBottom: 6 }}>
                     Nueva Contraseña
