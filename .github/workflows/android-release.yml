@@ -131,6 +131,19 @@ jobs:
           path: release-output/*.apk
           retention-days: 30
 
+      - name: 🧹 Clean up old v1.0.x releases
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning up prior releases..."
+          for rel_id in 409934823 403292321 399762379 398852228 395160291; do
+            gh api --method DELETE "repos/${{ github.repository }}/releases/$rel_id" 2>/dev/null || true
+          done
+          gh release list --limit 50 | grep -E '^v1\.' | cut -f1 | while read -r old_tag; do
+            [ -n "$old_tag" ] && gh release delete "$old_tag" -y 2>/dev/null || true
+          done
+
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
