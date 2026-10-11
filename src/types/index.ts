@@ -37,4 +37,4 @@ export interface BlogDraft {
   savedAt: string;
 }
 
-export type ActiveTab = 'dashboard' | 'calendar' | 'themes' | 'blog' | 'editor' | 'entry' | 'design' | 'wrapper-studio';
+export type ActiveTab = 'dashboard' | 'calendar' | 'themes' | 'blog' | 'editor' | 'entry' | 'wrapper-studio';

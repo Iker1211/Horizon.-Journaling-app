@@ -25,7 +25,6 @@ import { AuthModal, AuthMode } from "./components/AuthModal";
 import { FireGoatLogo } from "./components/FireGoatLogo";
 import { BottomNav } from "./components/BottomNav";
 import { QuickActionSheet } from "./components/QuickActionSheet";
-import { DesignSystemVisualizer } from "./components/DesignSystemVisualizer";
 import { WrapperStudioPage } from "./components/WrapperStudioPage";
 import { WrapperProvider } from "./context/WrapperContext";
 import { useAndroidBackHandler } from "./hooks/useAndroidBackHandler";
@@ -90,8 +89,6 @@ export const App: React.FC = () => {
         setActiveTab("themes");
       } else if (hash === "blog") {
         setActiveTab("blog");
-      } else if (hash === "design" || hash === "ds") {
-        setActiveTab("design");
       } else if (hash.startsWith("write") || hash.startsWith("editor")) {
         setActiveTab("editor");
         const searchPart = hash.includes("?") ? hash.split("?")[1] : "";
@@ -170,7 +167,7 @@ export const App: React.FC = () => {
   // --- Route Handlers ---
   const navigateToTab = (tab: ActiveTab) => {
     setActiveTab(tab);
-    if (tab === "dashboard" || tab === "calendar" || tab === "themes" || tab === "blog" || tab === "design") {
+    if (tab === "dashboard" || tab === "calendar" || tab === "themes" || tab === "blog") {
       window.location.hash = `#/${tab}`;
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -440,10 +437,6 @@ export const App: React.FC = () => {
               </button>
             </div>
           )
-        )}
-
-        {activeTab === "design" && (
-          <DesignSystemVisualizer />
         )}
           </div>
         )}

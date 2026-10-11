@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { LayoutDashboard, Calendar, Layers, BookOpen, Plus, RotateCcw, Cloud, LogOut, User, Palette } from 'lucide-react';
+import { LayoutDashboard, Calendar, Layers, BookOpen, Plus, RotateCcw, Cloud, LogOut, User } from 'lucide-react';
 import { FireGoatLogo } from './FireGoatLogo';
 
 interface NavbarProps {
@@ -79,15 +79,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <BookOpen size={17} />
           <span>Bitácora</span>
-        </button>
-
-        <button
-          className={`nav-tab-btn ${activeTab === 'design' ? 'active' : ''}`}
-          onClick={() => setActiveTab('design')}
-          title="Capa de Presentación & Tokens de Diseño"
-        >
-          <Palette size={17} />
-          <span>Diseño</span>
         </button>
       </nav>
 
