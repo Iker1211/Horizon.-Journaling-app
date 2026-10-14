@@ -7,7 +7,7 @@ android {
         applicationId "com.horizon.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 8
+        versionCode 9
         versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -26,9 +26,12 @@ android {
                 def rawKeyPass = System.getenv("KEY_PASSWORD")
 
                 storeFile = ksFile
-                storePassword = (rawPass != null && !rawPass.trim().isEmpty()) ? rawPass : "Horizon2027#SecurePass!"
-                keyAlias = (rawAlias != null && !rawAlias.trim().isEmpty()) ? rawAlias : "horizon-release"
-                keyPassword = (rawKeyPass != null && !rawKeyPass.trim().isEmpty()) ? rawKeyPass : "Horizon2027#SecurePass!"
+                if ([rawPass, rawAlias, rawKeyPass].any { it == null || it.trim().isEmpty() }) {
+                    throw new GradleException("Release signing requires KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD")
+                }
+                storePassword = rawPass
+                keyAlias = rawAlias
+                keyPassword = rawKeyPass
                 v1SigningEnabled = true
                 v2SigningEnabled = true
             }

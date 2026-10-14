@@ -27,20 +27,26 @@ import {
 } from "lucide-react";
 
 interface BlogEditorPageProps {
+  userId: string;
   themes: BigTheme[];
   initialThemeId?: string | null;
   entryToEdit?: BlogEntry | null;
-  onSave: (entry: BlogEntry) => void;
+  onSave: (entry: BlogEntry) => Promise<void>;
   onBack: () => void;
 }
 
 export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
+  userId,
   themes,
   initialThemeId,
   entryToEdit,
   onSave,
   onBack,
 }) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const didPublishRef = useRef(false);
+
   // Determine default theme
   const getFallbackThemeId = useCallback(() => {
     if (initialThemeId && themes.some(t => t.id === initialThemeId)) return initialThemeId;
@@ -88,12 +94,12 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       tagsInput,
       entryToEdit,
     };
-  }, [title, themeId, date, summary, content, tagsInput, entryToEdit]);
+  }, [title, themeId, date, summary, content, tagsInput, entryToEdit, userId]);
 
   // Flush draft to localStorage synchronously
-  const flushDraft = useCallback(() => {
+  const flushDraft = useCallback((updateStatus = true) => {
     const s = stateRef.current;
-    if (s.entryToEdit) return; // Do not overwrite drafts if editing an existing entry
+    if (s.entryToEdit || didPublishRef.current) return; // Do not overwrite drafts if editing an existing entry
     const hasContent = Boolean(s.title.trim() || s.content.trim() || s.summary.trim());
     if (hasContent) {
       const now = new Date();
@@ -106,10 +112,10 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
         tagsInput: s.tagsInput,
         savedAt: now.toISOString(),
       };
-      saveBlogDraft(draft);
-      setLastSavedText(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      try { saveBlogDraft(draft, userId); } catch { if (updateStatus) setLastSavedText("No se pudo guardar en este dispositivo"); return; }
+      if (updateStatus) setLastSavedText(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     }
-  }, []);
+  }, [userId]);
 
   // Listen to browser tab switching (visibilitychange) and page closing
   useEffect(() => {
@@ -127,6 +133,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     window.addEventListener("beforeunload", handlePageHide);
 
     return () => {
+      flushDraft(false);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("beforeunload", handlePageHide);
@@ -149,7 +156,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       hasInitializedRef.current = true;
     } else if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
-      const draft = loadBlogDraft();
+      const draft = loadBlogDraft(userId);
       const hasDraft = Boolean(draft && (draft.title?.trim() || draft.content?.trim() || draft.summary?.trim()));
 
       if (hasDraft && draft) {
@@ -178,7 +185,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
         setLastSavedText(null);
       }
     }
-  }, [entryToEdit, getFallbackThemeId, themes]);
+  }, [entryToEdit, getFallbackThemeId, themes, userId]);
 
   // Real-time debounced auto-save for new entries
   useEffect(() => {
@@ -197,13 +204,14 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           tagsInput,
           savedAt: now.toISOString(),
         };
-        saveBlogDraft(draft);
+        if (didPublishRef.current) return;
+        try { saveBlogDraft(draft, userId); } catch { setLastSavedText("No se pudo guardar en este dispositivo"); return; }
         setLastSavedText(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       }, 500);
 
       return () => clearTimeout(timer);
     }
-  }, [title, themeId, date, summary, content, tagsInput, entryToEdit]);
+  }, [title, themeId, date, summary, content, tagsInput, entryToEdit, userId]);
 
   // Markdown Formatting Helper
   const insertMarkdown = (prefix: string, suffix: string = "", placeholder: string = "") => {
@@ -232,7 +240,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
 
   const handleDiscardDraft = () => {
     if (window.confirm("¿Deseas descartar este borrador y comenzar una hoja en blanco?")) {
-      clearBlogDraft();
+      try { clearBlogDraft(userId); } catch { setSaveError("No se pudo descartar el borrador en este dispositivo."); return; }
       setTitle("");
       setThemeId(getFallbackThemeId());
       setDate(getTodayDateString());
@@ -244,8 +252,9 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     }
   };
 
-  const handlePublish = (e: React.FormEvent) => {
+  const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!title.trim()) {
       alert("Por favor escribe un título para la entrada.");
       return;
@@ -276,11 +285,20 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    onSave(newEntry);
-    if (!entryToEdit) {
-      clearBlogDraft();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(newEntry);
+      didPublishRef.current = true;
+      if (!entryToEdit) {
+        try { clearBlogDraft(userId); } catch { /* The cloud copy was saved successfully. */ }
+      }
+      onBack();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar. Tu texto sigue aquí.');
+    } finally {
+      setIsSaving(false);
     }
-    onBack();
   };
 
   // Word count and read time
@@ -296,7 +314,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     >
       {/* Top Header with Back button and Actions */}
       <div className="editor-top-nav">
-        <button type="button" onClick={onBack} className="editor-back-btn">
+        <button type="button" onClick={() => { flushDraft(); onBack(); }} disabled={isSaving} className="editor-back-btn">
           <ArrowLeft size={16} />
           <span>Volver a Bitácora</span>
         </button>
@@ -307,7 +325,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             <Check size={13} color="var(--color-success)" />
             <span>
               {lastSavedText
-                ? `Guardado ${lastSavedText}`
+                ? `Borrador: ${lastSavedText}`
                 : "Borrador activo"}
             </span>
           </div>
@@ -346,13 +364,16 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           <button
             type="button"
             onClick={handlePublish}
+            disabled={isSaving}
             className="btn-primary btn-sm clay-button-interactive"
             style={{ padding: "8px 18px", fontWeight: 700 }}
           >
-            {entryToEdit ? "Actualizar Entrada" : "Publicar Entrada"}
+            {isSaving ? "Guardando…" : "Guardar entrada"}
           </button>
         </div>
       </div>
+
+      {saveError && <p className="form-error" role="alert">{saveError}</p>}
 
       {/* Active Wrapper Context Pill */}
       {currentTheme && (

@@ -23,6 +23,9 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
     },
+    Keyboard: {
+      resizeOnFullScreen: true,
+    },
     StatusBar: {
       overlaysWebView: true,
       style: 'DARK',

@@ -5,6 +5,7 @@ import { loadBlogDraft, clearBlogDraft } from '../utils/storage';
 import { Plus, Search, Edit2, Trash2, Sparkles, Clock } from 'lucide-react';
 
 interface BlogJournalProps {
+  userId: string;
   entries: BlogEntry[];
   themes: BigTheme[];
   selectedThemeFilter: string | null;
@@ -17,6 +18,7 @@ interface BlogJournalProps {
 }
 
 export const BlogJournal: React.FC<BlogJournalProps> = ({
+  userId,
   entries,
   themes,
   selectedThemeFilter,
@@ -33,7 +35,7 @@ export const BlogJournal: React.FC<BlogJournalProps> = ({
   // Check for saved draft when mounting or window gains focus
   useEffect(() => {
     const checkDraft = () => {
-      const draft = loadBlogDraft();
+      const draft = loadBlogDraft(userId);
       if (draft && (draft.title?.trim() || draft.content?.trim() || draft.summary?.trim())) {
         setPendingDraft(draft);
       } else {
@@ -44,7 +46,7 @@ export const BlogJournal: React.FC<BlogJournalProps> = ({
     checkDraft();
     window.addEventListener('focus', checkDraft);
     return () => window.removeEventListener('focus', checkDraft);
-  }, []);
+  }, [userId]);
 
   // Filter entries
   const filteredEntries = entries.filter(entry => {
@@ -70,19 +72,18 @@ export const BlogJournal: React.FC<BlogJournalProps> = ({
         <div>
           <div className="badge-pill" style={{ marginBottom: 8 }}>
             <span style={{ color: 'var(--color-brand-peach)', fontWeight: 800 }}>✎</span>
-            <span>Bitácora Oficial de Ruta</span>
+            <span>TUS NOTAS</span>
           </div>
           <h1 className="display-sm" style={{ color: 'var(--color-ink)' }}>
-            Bitácora Rumbo a 2027
+            Bitácora
           </h1>
           <p className="section-desc" style={{ maxWidth: 680 }}>
-            Cada reflexión está contenida en un <strong>Wrapper</strong>. Documenta los descubrimientos,
-            puntos de inflexión y modelos mentales que te preparan para el año maestro.
+            Registra lo que avanza, lo que aprendes y lo que viene después.
           </p>
         </div>
 
         <button className="btn-primary clay-button-interactive" onClick={onOpenCreateEntry}>
-          <Plus size={16} /> Escribir en Bitácora
+          <Plus size={16} /> Nueva entrada
         </button>
       </div>
 
@@ -135,7 +136,7 @@ export const BlogJournal: React.FC<BlogJournalProps> = ({
               className="btn-secondary btn-sm"
               onClick={() => {
                 if (window.confirm('¿Deseas descartar este borrador pendiente?')) {
-                  clearBlogDraft();
+                  try { clearBlogDraft(userId); } catch { return; }
                   setPendingDraft(null);
                 }
               }}

@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { BigTheme, ClayColor } from '../types';
+import { useDialog } from '../hooks/useDialog';
 import { X, Plus, Trash2 } from 'lucide-react';
 
 interface ThemeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (theme: BigTheme) => void;
+  onSave: (theme: BigTheme) => Promise<void>;
   themeToEdit?: BigTheme | null;
 }
 
 const CLAY_COLORS: { id: ClayColor; label: string; hex: string }[] = [
-  { id: 'ochre', label: 'Brand Ochre (Fulgor Solar)', hex: '#e8b94a' },
-  { id: 'peach', label: 'Brand Peach (Amanecer)', hex: '#ffb084' },
-  { id: 'coral', label: 'Brand Coral (Terracota)', hex: '#ff6b5a' },
-  { id: 'lavender', label: 'Brand Lavender (Cielo Horizonte)', hex: '#b8a4ed' },
-  { id: 'mint', label: 'Brand Mint (Salvia)', hex: '#a4d4c5' },
-  { id: 'teal', label: 'Brand Teal (Pizarra)', hex: '#1a3a3a' },
-  { id: 'pink', label: 'Brand Rose (Rosa Arcilla)', hex: '#ff637c' },
+  { id: 'ochre', label: 'Ocre', hex: '#e8b94a' },
+  { id: 'peach', label: 'Durazno', hex: '#ffb084' },
+  { id: 'coral', label: 'Coral', hex: '#ff6b5a' },
+  { id: 'lavender', label: 'Lavanda', hex: '#b8a4ed' },
+  { id: 'mint', label: 'Menta', hex: '#a4d4c5' },
+  { id: 'teal', label: 'Verde', hex: '#1a3a3a' },
+  { id: 'pink', label: 'Rosa', hex: '#ff637c' },
 ];
 
 export const ThemeModal: React.FC<ThemeModalProps> = ({
@@ -25,6 +26,9 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
   onSave,
   themeToEdit,
 }) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const dialogRef = useDialog(isOpen, () => { if (!isSaving) onClose(); });
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState<ClayColor>('ochre');
@@ -32,6 +36,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
   const [goals, setGoals] = useState<string[]>(['']);
 
   useEffect(() => {
+    setSaveError(null);
     if (themeToEdit) {
       setName(themeToEdit.name);
       setDescription(themeToEdit.description);
@@ -67,9 +72,9 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
     setGoals(goals.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isSaving) return;
 
     const filteredGoals = goals.map(g => g.trim()).filter(Boolean);
 
@@ -85,19 +90,29 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    onSave(themeData);
-    onClose();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(themeData);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="theme-modal-title">
+    <div ref={dialogRef} tabIndex={-1} className="modal-overlay" onClick={() => { if (!isSaving) onClose(); }} role="dialog" aria-modal="true" aria-labelledby="theme-modal-title">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 id="theme-modal-title" className="title-lg" style={{ fontFamily: 'var(--font-display)' }}>
-            {themeToEdit ? 'Editar Wrapper' : 'Nuevo Wrapper (2027)'}
+            {themeToEdit ? 'Editar Wrapper' : 'Nuevo wrapper'}
           </h3>
           <button
             onClick={onClose}
+            disabled={isSaving}
+            className="icon-button"
             aria-label="Cerrar modal de wrapper"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}
           >
@@ -115,7 +130,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
               type="text"
               required
               className="input-text"
-              placeholder="Ej: Salud Radical, Maestría en IA, Riqueza Soberana..."
+              placeholder="Ej. Aprender un idioma"
               value={name}
               onChange={e => setName(e.target.value)}
             />
@@ -123,13 +138,13 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
 
           <div>
             <label htmlFor="theme-desc-input" className="caption-uppercase" style={{ display: 'block', marginBottom: 6 }}>
-              Descripción / Propósito hacia 2027
+              ¿Qué quieres lograr?
             </label>
             <textarea
               id="theme-desc-input"
               className="textarea-custom"
               rows={3}
-              placeholder="¿Por qué este pilar es fundamental para tu 2027?"
+              placeholder="Describe brevemente el propósito de este espacio."
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
@@ -137,7 +152,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
 
           <div>
             <label className="caption-uppercase" style={{ display: 'block', marginBottom: 6 }}>
-              Color de Marca Clay
+              Color
             </label>
             <div className="color-picker-palette">
               {CLAY_COLORS.map(c => (
@@ -147,6 +162,8 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
                   className={`color-option-radio ${color === c.id ? 'selected' : ''}`}
                   style={{ backgroundColor: `var(--color-brand-${c.id})` }}
                   onClick={() => setColor(c.id)}
+                  aria-label={c.label}
+                  aria-pressed={color === c.id}
                   title={c.label}
                 >
                   {color === c.id && (
@@ -167,13 +184,13 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
 
           <div>
             <label htmlFor="theme-priority-select" className="caption-uppercase" style={{ display: 'block', marginBottom: 6 }}>
-              Prioridad Estratégica
+              Prioridad
             </label>
             <select
               id="theme-priority-select"
               className="select-custom"
               value={priority}
-              onChange={e => setPriority(e.target.value as any)}
+              onChange={e => setPriority(e.target.value as BigTheme['priority'])}
             >
               <option value="vital">Vital (Máxima prioridad)</option>
               <option value="alta">Alta</option>
@@ -184,7 +201,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <label className="caption-uppercase">
-                Metas Críticas 2027 bajo este Tema
+                Metas para 2027
               </label>
               <button
                 type="button"
@@ -202,12 +219,15 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
                   <input
                     type="text"
                     className="input-text"
+                    aria-label={`Meta ${idx + 1}`}
                     placeholder={`Meta concreta #${idx + 1} para 2027`}
                     value={goal}
                     onChange={e => handleGoalChange(idx, e.target.value)}
                   />
                   <button
                     type="button"
+                    aria-label={`Eliminar meta ${idx + 1}`}
+                    className="icon-button"
                     onClick={() => handleRemoveGoal(idx)}
                     style={{
                       background: 'none',
@@ -224,12 +244,13 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
             </div>
           </div>
 
+          {saveError && <p className="form-error" role="alert">{saveError}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSaving}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary clay-button-interactive">
-              {themeToEdit ? 'Guardar Cambios' : 'Crear Wrapper'}
+            <button type="submit" disabled={isSaving} className="btn-primary clay-button-interactive">
+              {isSaving ? 'Guardando…' : themeToEdit ? 'Guardar cambios' : 'Crear wrapper'}
             </button>
           </div>
         </form>

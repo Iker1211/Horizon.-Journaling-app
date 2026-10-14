@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://rlkfornfrumvixwvcihy.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const targetEmail = process.argv[2] || 'velezlucasiker1@gmail.com';
+const targetEmail = process.argv[2];
 const newPassword = process.argv[3];
+
+if (!SUPABASE_URL || !targetEmail) {
+  console.error("Set VITE_SUPABASE_URL and supply the account email explicitly.");
+  process.exit(1);
+}
 
 if (!SERVICE_ROLE_KEY) {
   console.error('\n❌ Error: SUPABASE_SERVICE_ROLE_KEY no está definido.');
@@ -52,7 +57,7 @@ async function resetPassword() {
   console.log(`✅ Usuario encontrado: ID ${user.id}`);
   console.log(`🔄 Actualizando contraseña a la nueva clave especificada...`);
 
-  const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
     user.id,
     {
       password: newPassword,

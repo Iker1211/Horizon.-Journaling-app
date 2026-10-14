@@ -34,7 +34,7 @@ export interface Year365Cycle {
   cycleNumber: number;
 }
 
-const STORAGE_KEY_START_DATE = 'clay_2027_app_start_date';
+const startDateKey = (userId: string) => `horizon:${encodeURIComponent(userId)}:start-date:v2`;
 
 /**
  * Parses YYYY-MM-DD to local Date object at midnight without UTC shifting issues.
@@ -76,14 +76,15 @@ export function diffDays(fromStr: string, toStr: string): number {
  * Retrieves the stored start date of the user's 365-day year.
  * If not set, initializes it to today and persists it.
  */
-export function getAppStartDate(): string {
+export function getAppStartDate(userId?: string): string {
+  if (!userId) return getTodayDateString();
   try {
-    const saved = localStorage.getItem(STORAGE_KEY_START_DATE);
+    const saved = localStorage.getItem(startDateKey(userId));
     if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
       return saved;
     }
     const today = getTodayDateString();
-    localStorage.setItem(STORAGE_KEY_START_DATE, today);
+    localStorage.setItem(startDateKey(userId), today);
     return today;
   } catch {
     return getTodayDateString();
@@ -93,9 +94,10 @@ export function getAppStartDate(): string {
 /**
  * Updates the user's 365-day year start date.
  */
-export function saveAppStartDate(startDateStr: string): void {
+export function saveAppStartDate(startDateStr: string, userId?: string): void {
+  if (!userId) return;
   try {
-    localStorage.setItem(STORAGE_KEY_START_DATE, startDateStr);
+    localStorage.setItem(startDateKey(userId), startDateStr);
   } catch (err) {
     console.warn('Failed to save start date:', err);
   }

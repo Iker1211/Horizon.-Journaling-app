@@ -42,15 +42,13 @@ export const BigThemesManager: React.FC<BigThemesManagerProps> = ({
         <div>
           <div className="badge-pill" style={{ marginBottom: 8 }}>
             <span style={{ color: 'var(--color-brand-ochre)', fontWeight: 800 }}>★</span>
-            <span>Estructura de Wrappers 2027</span>
+            <span>TU ESPACIO</span>
           </div>
           <h1 className="display-sm" style={{ color: 'var(--color-ink)' }}>
             Wrappers
           </h1>
           <p className="section-desc" style={{ maxWidth: 680 }}>
-            Los Wrappers son los pilares integrales que dan coherencia y estructura al camino hacia 2027.
-            Sirven como contenedores para cada reflexión de la bitácora
-            y cada meta estratégica del año.
+            Un espacio para cada proyecto. Reúne tus metas, avances y reflexiones.
           </p>
         </div>
 
@@ -60,17 +58,10 @@ export const BigThemesManager: React.FC<BigThemesManagerProps> = ({
       </div>
 
       {themes.length === 0 ? (
-        <div style={{
-          backgroundColor: 'var(--color-surface-soft)',
-          borderRadius: 'var(--radius-xl)',
-          padding: 60,
-          textAlign: 'center',
-          border: '1px solid var(--color-hairline)',
-          boxShadow: '0 2px 0 var(--color-surface-strong)',
-        }}>
-          <h3 className="title-md">No tienes ningún Wrapper configurado</h3>
+        <div className="empty-state">
+          <h3 className="title-md">Dale un espacio a lo que importa</h3>
           <p className="body-sm" style={{ marginTop: 8, marginBottom: 20 }}>
-            Crea tu primer Wrapper (por ejemplo: Salud Radical, Maestría en IA, Soberanía Financiera) para empezar a estructurar tus entradas de bitácora y metas 2027.
+            Agrupa tus metas y notas en un espacio propio. Puedes empezar con un proyecto, un hábito o algo que quieras aprender.
           </p>
           <button className="btn-primary" onClick={onOpenCreateTheme}>
             <Plus size={15} /> Crear Primer Wrapper
@@ -93,7 +84,7 @@ export const BigThemesManager: React.FC<BigThemesManagerProps> = ({
                       <button
                         className="theme-btn-action"
                         onClick={() => onEditTheme(theme)}
-                        title="Editar Wrapper"
+                        aria-label={`Editar ${theme.name}`} title="Editar Wrapper"
                       >
                         <Edit2 size={13} />
                       </button>
@@ -104,7 +95,7 @@ export const BigThemesManager: React.FC<BigThemesManagerProps> = ({
                             onDeleteTheme(theme.id);
                           }
                         }}
-                        title="Eliminar Wrapper"
+                        aria-label={`Eliminar ${theme.name}`} title="Eliminar Wrapper"
                         style={{ color: 'var(--color-error)' }}
                       >
                         <Trash2 size={13} />
@@ -113,13 +104,10 @@ export const BigThemesManager: React.FC<BigThemesManagerProps> = ({
                   </div>
 
                   <div className="theme-header-info">
-                    <h3
-                      className="theme-title"
-                      style={{ cursor: onOpenStudio ? 'pointer' : 'default' }}
-                      onClick={() => onOpenStudio && onOpenStudio(theme.id)}
-                      title="Entrar al Studio de este Wrapper"
-                    >
-                      {theme.name}
+                    <h3 className="theme-title">
+                      <button type="button" className="theme-title-button" onClick={() => onOpenStudio?.(theme.id)}>
+                        {theme.name}
+                      </button>
                     </h3>
                   </div>
 

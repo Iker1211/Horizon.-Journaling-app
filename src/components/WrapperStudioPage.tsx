@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BigTheme, BlogEntry } from '../types';
 import { formatDateSpanish } from '../utils/dates';
-import { getQuarterForDate, QUARTER_DEFINITIONS, QuarterDefinition } from '../utils/quarters';
+import { getAppStartDate, getQuarterForDate, QUARTER_DEFINITIONS, QuarterDefinition } from '../utils/quarters';
 import {
   ArrowLeft,
   Plus,
@@ -11,13 +11,13 @@ import {
   Sparkles,
   Edit2,
   Clock,
-  Layers,
   Search,
   PenLine,
   FileText,
 } from 'lucide-react';
 
 interface WrapperStudioPageProps {
+  userId: string;
   wrapper: BigTheme;
   allWrappers: BigTheme[];
   blogEntries: BlogEntry[];
@@ -29,6 +29,7 @@ interface WrapperStudioPageProps {
 }
 
 export const WrapperStudioPage: React.FC<WrapperStudioPageProps> = ({
+  userId,
   wrapper,
   allWrappers,
   blogEntries,
@@ -61,7 +62,7 @@ export const WrapperStudioPage: React.FC<WrapperStudioPageProps> = ({
   };
 
   wrapperBlogs.forEach(b => {
-    const qInfo = getQuarterForDate(b.date);
+    const qInfo = getQuarterForDate(b.date, getAppStartDate(userId));
     if (qInfo?.quarterId && blogsByQuarter[qInfo.quarterId]) {
       blogsByQuarter[qInfo.quarterId].push(b);
     } else {

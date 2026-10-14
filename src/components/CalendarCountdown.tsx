@@ -10,7 +10,6 @@ import {
   Edit2,
   Check,
   X,
-  FileText,
 } from 'lucide-react';
 import { ClayIllustration } from './ClayIllustration';
 import {
@@ -22,6 +21,7 @@ import {
 } from '../utils/quarters';
 
 interface CalendarCountdownProps {
+  userId: string;
   countdown?: CountdownTime;
   themes: BigTheme[];
   blogEntries: BlogEntry[];
@@ -31,6 +31,7 @@ interface CalendarCountdownProps {
 }
 
 export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
+  userId,
   countdown: _countdown,
   themes,
   blogEntries,
@@ -44,7 +45,7 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
   const [currentMonth, setCurrentMonth] = useState<number>(parseInt(todayParts[1], 10) - 1); // 0-indexed
 
   // Start Date for the 365-day year cycle
-  const [startDateStr, setStartDateStr] = useState<string>(() => getAppStartDate());
+  const [startDateStr, setStartDateStr] = useState<string>(() => getAppStartDate(userId));
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [tempStartDate, setTempStartDate] = useState(startDateStr);
 
@@ -65,7 +66,7 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
 
   const handleSaveStartDate = () => {
     if (tempStartDate && /^\d{4}-\d{2}-\d{2}$/.test(tempStartDate)) {
-      saveAppStartDate(tempStartDate);
+      saveAppStartDate(tempStartDate, userId);
       setStartDateStr(tempStartDate);
       setIsEditingStartDate(false);
     }
@@ -215,13 +216,13 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
       <section className="subtractor-hero">
         <div>
           <span className="subtractor-tagline">
-            ✦ Calendario Anual de 365 Días — Los 4 Quarters de Ejecución
+            TU RITMO, DÍA A DÍA
           </span>
           <h1 className="subtractor-main-title">
-            Tu año de 365 días: los 4 Quarters de Conquista.
+            Calendario
           </h1>
-          <p className="body-sm" style={{ color: 'var(--color-on-dark-soft)', marginBottom: 14 }}>
-            Estructurado en cuatro cuartos (Q1, Q2, Q3, Q4) desde el día en que comenzaste a utilizar la aplicación.
+          <p className="body-sm" style={{ color: 'var(--color-muted)', marginBottom: 14 }}>
+            Un año de avances, organizado en cuatro trimestres.
           </p>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -366,144 +367,6 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
         </div>
       </section>
 
-      {/* Los 4 Quarters del Año (Executive Cards Grid) */}
-      <section className="quarters-section">
-        <div className="section-header">
-          <div>
-            <span className="caption-uppercase" style={{ color: 'var(--color-brand-coral)' }}>
-              Estructura CEO · 4 Cuartos Estratégicos
-            </span>
-            <h2 className="section-title">Los 4 Quarters del Año (Q1, Q2, Q3, Q4)</h2>
-            <p className="section-desc">
-              Cada cuarto representa una fase de 91 a 92 días con foco ejecutivo y bitácora continua.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className={`btn-sm ${selectedQuarterFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setSelectedQuarterFilter('all')}
-            >
-              Ver Todos los Quarters
-            </button>
-          </div>
-        </div>
-
-        <div className="quarters-cards-grid">
-          {cycle365.quarters.map(q => {
-            const isFilterActive = selectedQuarterFilter === q.id;
-            const qBlogs = blogEntries.filter(b => {
-              const qInfo = getQuarterForDate(b.date, startDateStr);
-              return qInfo.quarterId === q.id;
-            });
-
-            return (
-              <div
-                key={q.id}
-                className={`quarter-card ${q.status === 'active' ? 'active' : ''}`}
-                style={{
-                  borderColor: isFilterActive ? 'var(--color-brand-coral)' : undefined,
-                  boxShadow: isFilterActive ? '0 8px 0 var(--color-brand-coral)' : undefined,
-                }}
-                onClick={() => {
-                  setSelectedQuarterFilter(isFilterActive ? 'all' : q.id);
-                  handleJumpToQuarter(q.startDateStr);
-                }}
-              >
-                <div>
-                  <div className="quarter-card-top">
-                    <span className="quarter-id-badge" style={{ color: `var(--color-brand-${q.color})` }}>
-                      {q.name}
-                    </span>
-                    <span className={`quarter-status-pill ${q.status}`}>
-                      {q.status === 'active' ? '● En Curso' : q.status === 'completed' ? '✓ Completado' : 'Próximo'}
-                    </span>
-                  </div>
-
-                  <h3 className="quarter-title">{q.title}</h3>
-                  <div className="quarter-subtitle">{q.subtitle}</div>
-
-                  <div className="quarter-daterange">
-                    {formatDateSpanish(q.startDateStr)} ➔ {formatDateSpanish(q.endDateStr)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4, fontWeight: 600 }}>
-                    Días {q.startDayNumber} a {q.endDayNumber} ({q.totalDays} días)
-                  </div>
-                </div>
-
-                <div>
-                  {/* Progress in this Quarter */}
-                  <div className="quarter-progress-wrapper">
-                    <div className="quarter-progress-label">
-                      <span>Progreso del cuarto</span>
-                      <span><strong>{q.progressPercent}%</strong> ({q.daysElapsed}/{q.totalDays}d)</span>
-                    </div>
-                    <div className="quarter-progress-bar">
-                      <div
-                        className="quarter-progress-fill"
-                        style={{
-                          width: `${q.progressPercent}%`,
-                          backgroundColor: `var(--color-brand-${q.color})`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Metrics Row */}
-                  <div className="quarter-metrics-row">
-                    <div className="quarter-metric-box">
-                      <div className="quarter-metric-num">
-                        {q.totalDays}d
-                      </div>
-                      <div className="quarter-metric-lbl">Duración</div>
-                    </div>
-                    <div className="quarter-metric-box">
-                      <div className="quarter-metric-num">
-                        {qBlogs.length}
-                      </div>
-                      <div className="quarter-metric-lbl">Bitácoras</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Dynamic Calculator Tool: Calculadora de Días & Cuartos */}
-      <section className="subtractor-calc-tool">
-        <div className="subtractor-calc-header">
-          <Clock size={20} color="var(--color-brand-coral)" style={{ flexShrink: 0 }} />
-          <div>
-            <h4 style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-ink)' }}>
-              Calculadora de Días & Fechas Clave
-            </h4>
-            <p className="body-sm" style={{ fontSize: 13 }}>
-              Calcula los días exactos que restan desde hoy ({todayStr}) hasta cualquier fecha clave en tu año de 365 días.
-            </p>
-          </div>
-        </div>
-
-        <div className="subtractor-calc-inputs">
-          <input
-            type="date"
-            className="input-text subtractor-date-input"
-            value={customCalcDate}
-            onChange={e => setCustomCalcDate(e.target.value)}
-          />
-          <div
-            className="badge-pill subtractor-calc-result"
-            style={{
-              backgroundColor: customDaysLeft >= 0 ? 'var(--color-primary)' : 'var(--color-error)',
-              color: 'var(--color-on-primary)',
-            }}
-          >
-            {customDaysLeft >= 0 ? `Restan ${customDaysLeft} días` : `Pasaron ${Math.abs(customDaysLeft)} días`}
-            {customQuarterInfo.isWithinYear && ` · ${customQuarterInfo.statusLabel}`}
-          </div>
-        </div>
-      </section>
-
       {/* Calendar Controls & Navigation Bar */}
       <div className="calendar-controls-bar">
         <div className="calendar-month-selector">
@@ -579,6 +442,11 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
             return (
               <div
                 key={idx}
+                role="button"
+                tabIndex={0}
+                aria-label={`${formatDateSpanish(dayItem.dateStr)}${dayItem.isToday ? ", hoy" : ""}${hasBlog ? `, ${dayBlogs.length} entradas` : ""}`}
+                aria-pressed={isSelected}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedDayDetail(dayItem.dateStr); onSelectDate(dayItem.dateStr); } }}
                 className={`calendar-day-cell ${!dayItem.isCurrentMonth ? 'other-month' : ''} ${dayItem.isToday ? 'today' : ''} ${dayItem.is2027Target ? 'target-2027' : ''}`}
                 style={{
                   border: isSelected ? '2px solid var(--color-brand-coral)' : undefined,
@@ -763,6 +631,152 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
           </div>
         </section>
       )}
+
+      {/* Los 4 Quarters del Año (Executive Cards Grid) */}
+      <section className="quarters-section">
+        <div className="section-header">
+          <div>
+            <span className="caption-uppercase" style={{ color: 'var(--color-brand-coral)' }}>
+              PLAN ANUAL
+            </span>
+            <h2 className="section-title">Tus cuatro trimestres</h2>
+            <p className="section-desc">
+              Revisa cada etapa y las notas que la acompañan.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className={`btn-sm ${selectedQuarterFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setSelectedQuarterFilter('all')}
+            >
+              Ver todos
+            </button>
+          </div>
+        </div>
+
+        <div className="quarters-cards-grid">
+          {cycle365.quarters.map(q => {
+            const isFilterActive = selectedQuarterFilter === q.id;
+            const qBlogs = blogEntries.filter(b => {
+              const qInfo = getQuarterForDate(b.date, startDateStr);
+              return qInfo.quarterId === q.id;
+            });
+
+            return (
+              <div
+                key={q.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ver ${q.name}`}
+                aria-pressed={isFilterActive}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedQuarterFilter(isFilterActive ? "all" : q.id); handleJumpToQuarter(q.startDateStr); } }}
+                className={`quarter-card ${q.status === 'active' ? 'active' : ''}`}
+                style={{
+                  borderColor: isFilterActive ? 'var(--color-brand-coral)' : undefined,
+                  boxShadow: isFilterActive ? '0 8px 0 var(--color-brand-coral)' : undefined,
+                }}
+                onClick={() => {
+                  setSelectedQuarterFilter(isFilterActive ? 'all' : q.id);
+                  handleJumpToQuarter(q.startDateStr);
+                }}
+              >
+                <div>
+                  <div className="quarter-card-top">
+                    <span className="quarter-id-badge" style={{ color: `var(--color-brand-${q.color})` }}>
+                      {q.name}
+                    </span>
+                    <span className={`quarter-status-pill ${q.status}`}>
+                      {q.status === 'active' ? '● En Curso' : q.status === 'completed' ? '✓ Completado' : 'Próximo'}
+                    </span>
+                  </div>
+
+                  <h3 className="quarter-title">{q.title}</h3>
+                  <div className="quarter-subtitle">{q.subtitle}</div>
+
+                  <div className="quarter-daterange">
+                    {formatDateSpanish(q.startDateStr)} ➔ {formatDateSpanish(q.endDateStr)}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 4, fontWeight: 600 }}>
+                    Días {q.startDayNumber} a {q.endDayNumber} ({q.totalDays} días)
+                  </div>
+                </div>
+
+                <div>
+                  {/* Progress in this Quarter */}
+                  <div className="quarter-progress-wrapper">
+                    <div className="quarter-progress-label">
+                      <span>Progreso del cuarto</span>
+                      <span><strong>{q.progressPercent}%</strong> ({q.daysElapsed}/{q.totalDays}d)</span>
+                    </div>
+                    <div className="quarter-progress-bar">
+                      <div
+                        className="quarter-progress-fill"
+                        style={{
+                          width: `${q.progressPercent}%`,
+                          backgroundColor: `var(--color-brand-${q.color})`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Metrics Row */}
+                  <div className="quarter-metrics-row">
+                    <div className="quarter-metric-box">
+                      <div className="quarter-metric-num">
+                        {q.totalDays}d
+                      </div>
+                      <div className="quarter-metric-lbl">Duración</div>
+                    </div>
+                    <div className="quarter-metric-box">
+                      <div className="quarter-metric-num">
+                        {qBlogs.length}
+                      </div>
+                      <div className="quarter-metric-lbl">Bitácoras</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Dynamic Calculator Tool: Calculadora de Días & Cuartos */}
+      <section className="subtractor-calc-tool">
+        <div className="subtractor-calc-header">
+          <Clock size={20} color="var(--color-brand-coral)" style={{ flexShrink: 0 }} />
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-ink)' }}>
+              ¿Cuánto falta?
+            </h4>
+            <p className="body-sm" style={{ fontSize: 13 }}>
+              Calcula los días exactos que restan desde hoy ({todayStr}) hasta cualquier fecha clave en tu año de 365 días.
+            </p>
+          </div>
+        </div>
+
+        <div className="subtractor-calc-inputs">
+          <input
+            type="date"
+            aria-label="Fecha para calcular los días restantes"
+            className="input-text subtractor-date-input"
+            value={customCalcDate}
+            onChange={e => setCustomCalcDate(e.target.value)}
+          />
+          <div
+            className="badge-pill subtractor-calc-result"
+            style={{
+              backgroundColor: customDaysLeft >= 0 ? 'var(--color-primary)' : 'var(--color-error)',
+              color: 'var(--color-on-primary)',
+            }}
+          >
+            {customDaysLeft >= 0 ? `Restan ${customDaysLeft} días` : `Pasaron ${Math.abs(customDaysLeft)} días`}
+            {customQuarterInfo.isWithinYear && ` · ${customQuarterInfo.statusLabel}`}
+          </div>
+        </div>
+      </section>
+
+
 
       {/* Bitácora Section with Quarters Filter */}
       <section className="quarters-reflections-section">

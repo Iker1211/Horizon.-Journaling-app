@@ -8,6 +8,7 @@
 import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,9 +21,6 @@ function resolveSharp() {
   const candidates = [
     'sharp',
     process.env.SHARP_PATH,
-    '/home/velez/.nvm/versions/node/v24.13.0/lib/node_modules/openclaw/node_modules/sharp',
-    '/home/velez/.nvm/versions/node/v24.13.0/lib/node_modules/wrangler/node_modules/sharp',
-    '/home/velez/.npm/_npx/4e5c24d7baa062b3/node_modules/sharp'
   ].filter(Boolean);
 
   for (const c of candidates) {
@@ -35,7 +33,7 @@ function resolveSharp() {
   }
 
   // Fallback scan in npm cache
-  const npxCacheDir = '/home/velez/.npm/_npx';
+  const npxCacheDir = path.join(os.homedir(), '.npm', '_npx');
   if (fs.existsSync(npxCacheDir)) {
     try {
       const entries = fs.readdirSync(npxCacheDir);
