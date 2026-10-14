@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, LogOut, Mail, ShieldCheck, X } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { useDialog } from "../hooks/useDialog";
+import { getAuthRedirectUrl } from "../utils/authRedirect";
 import "../styles/auth.css";
 
 export type AuthMode = "signin" | "signup" | "otp" | "forgot" | "update-password";
@@ -15,6 +16,7 @@ interface AuthModalProps {
   user: User | null;
   onSignOut: () => void | Promise<void>;
   onAuthSuccess?: () => void;
+  initialError?: string | null;
 }
 
 const MODES: AuthMode[] = ["signin", "signup", "otp", "forgot", "update-password"];
@@ -54,7 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = props => props.isOpen
   ? <AuthModalContent key={props.initialMode ?? "signin"} {...props} />
   : null;
 
-const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = "signin", user, onSignOut, onAuthSuccess }) => {
+const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = "signin", user, onSignOut, onAuthSuccess, initialError = null }) => {
   const [mode, setMode] = useState<AuthMode>(MODES.includes(initialMode as AuthMode) ? initialMode as AuthMode : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,7 +67,7 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [codeSent, setCodeSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [notice, setNotice] = useState<string | null>(null);
   const requestVersion = useRef(0);
   const requestPending = useRef(false);
@@ -127,9 +129,15 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const sendCode = async (purpose: CodePurpose, isCurrent: () => boolean, resend = false) => {
     if (!supabase) return;
     const address = email.trim();
-    const result = purpose === "signup" && resend
-      ? await supabase.auth.resend({ type: "signup", email: address })
-      : await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: false } });
+    const redirectUrl = getAuthRedirectUrl(purpose);
+    const result = purpose === "recovery"
+      ? await supabase.auth.resetPasswordForEmail(address, { redirectTo: redirectUrl })
+      : purpose === "signup" && resend
+        ? await supabase.auth.resend({ type: "signup", email: address, options: { emailRedirectTo: redirectUrl } })
+        : await supabase.auth.signInWithOtp({
+            email: address,
+            options: { shouldCreateUser: false, emailRedirectTo: redirectUrl },
+          });
     if (result.error) throw result.error;
     if (!isCurrent()) return;
     setEmail(address);
@@ -156,7 +164,7 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       setError("Las contraseñas no coinciden.");
       return;
     }
-    if (mode === "otp" && codeSent && !/^\d{6,8}$/.test(code)) {
+    if (mode === "otp" && codeSent && !/^\d{6}$/.test(code)) {
       setError("Escribe el código completo que recibiste por correo.");
       return;
     }
@@ -167,13 +175,18 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         if (authError) throw authError;
         if (isCurrent()) finishAuth();
       } else if (mode === "signup") {
-        const { data, error: authError } = await supabase.auth.signUp({ email: email.trim(), password });
+        const address = email.trim();
+        const { data, error: authError } = await supabase.auth.signUp({
+          email: address,
+          password,
+          options: { emailRedirectTo: getAuthRedirectUrl("signup") },
+        });
         if (authError) throw authError;
         if (!isCurrent()) return;
         if (data.session) {
           finishAuth();
         } else {
-          setEmail(email.trim());
+          setEmail(address);
           setPassword("");
           setCodePurpose("signup");
           setCodeSent(true);
@@ -184,7 +197,8 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       } else if (mode === "forgot" || (mode === "otp" && !codeSent)) {
         await sendCode(mode === "forgot" ? "recovery" : "signin", isCurrent);
       } else if (mode === "otp") {
-        const { error: authError } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: "email" });
+        const otpType = codePurpose === "recovery" ? "recovery" : codePurpose === "signup" ? "signup" : "email";
+        const { error: authError } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: otpType });
         if (authError) throw authError;
         if (!isCurrent()) return;
         if (codePurpose === "recovery") {
@@ -199,8 +213,7 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         if (isCurrent()) {
           setPassword("");
           setConfirmPassword("");
-          setMode("signin");
-          setNotice("Tu contraseña se ha actualizado.");
+          finishAuth();
         }
       }
     });
@@ -212,14 +225,14 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const heading = isAccount ? "Tu cuenta" : {
     signin: "Tu espacio, a tu ritmo.",
     signup: "Empieza tu próximo capítulo.",
-    otp: codeSent ? "Revisa tu correo" : "Entra con un código",
+    otp: codeSent ? (codePurpose === "recovery" ? "Confirma que eres tú" : codePurpose === "signup" ? "Activa tu cuenta" : "Revisa tu correo") : "Entra con un código",
     forgot: "Recupera tu acceso",
     "update-password": "Una nueva contraseña",
   }[mode];
   const description = isAccount ? "Tus proyectos y tus ideas, contigo." : {
     signin: "Inicia sesión para continuar con tus wrappers y bitácoras.",
     signup: "Crea una cuenta para organizar tus proyectos en Horizon.",
-    otp: codeSent ? `Escribe el código enviado a ${email}.` : "Te enviaremos un código para entrar sin contraseña.",
+    otp: codeSent ? `Escribe aquí el código de seis dígitos enviado a ${email}. No necesitas abrir ningún enlace.` : "Te enviaremos un código para entrar sin contraseña.",
     forgot: "Verifica tu correo con un código y elige una nueva contraseña.",
     "update-password": "Usa al menos 6 caracteres. Combina letras y números para mayor seguridad.",
   }[mode];
@@ -270,7 +283,7 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 {(mode === "signin" || mode === "signup" || mode === "update-password") && <label className="auth-field" htmlFor="auth-password"><span>{mode === "update-password" ? "Nueva contraseña" : "Contraseña"}</span><div className="auth-password-input"><input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder={mode === "signin" ? "Tu contraseña" : "Al menos 6 caracteres"} required minLength={mode === "signin" ? undefined : 6} value={password} onChange={event => setPassword(event.target.value)} /><button type="button" className="auth-icon-button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></label>}
                 {mode === "update-password" && <label className="auth-field" htmlFor="auth-confirm"><span>Repite la nueva contraseña</span><input id="auth-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Escríbela una vez más" required minLength={6} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>}
                 {mode === "signin" && <button type="button" className="auth-link auth-forgot" onClick={() => navigate("forgot")}>¿Olvidaste tu contraseña?</button>}
-                {mode === "otp" && codeSent && <label className="auth-field" htmlFor="auth-code"><span>Código de verificación</span><input ref={codeInput} className="auth-code-input" id="auth-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,8}" minLength={6} maxLength={8} placeholder="· · · · · ·" required value={code} onChange={event => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))} /><small>Puedes pegar el código completo.</small></label>}
+                {mode === "otp" && codeSent && <label className="auth-field" htmlFor="auth-code"><span>Código de verificación</span><input ref={codeInput} className="auth-code-input" id="auth-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} placeholder="· · · · · ·" required value={code} onChange={event => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} /><small>Puedes copiarlo desde el correo y pegarlo aquí.</small></label>}
                 <button type="submit" className="auth-primary">{loading ? <><LoaderCircle size={18} className="auth-spinner" />Un momento…</> : <>{submitLabel}<ArrowRight size={18} /></>}</button>
               </fieldset>
             </form>

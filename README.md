@@ -16,6 +16,8 @@ npm run lint
 
 Configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en `.env.local`. Usa la clave publicable del proyecto, nunca una clave de servicio. Las mismas variables deben configurarse como secretos del repositorio para las compilaciones Android. Las tablas y políticas por usuario están en `supabase/schema.sql`.
 
+Configura también las URLs y plantillas de correo siguiendo [`supabase/AUTH_SETUP.md`](supabase/AUTH_SETUP.md). Android vuelve a `horizon://auth/callback`; la web puede fijar su dominio público mediante `VITE_PUBLIC_SITE_URL`.
+
 ## Cuentas y datos
 
 - El contenido de la aplicación requiere iniciar sesión. Una cuenta nueva comienza vacía.

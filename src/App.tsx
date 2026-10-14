@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { ArrowRight, BookOpen, CalendarDays, Layers, LockKeyhole } from "lucide-react";
 import { ActiveTab, BigTheme, BlogEntry } from "./types";
@@ -27,6 +27,7 @@ import { QuickActionSheet } from "./components/QuickActionSheet";
 import { WrapperStudioPage } from "./components/WrapperStudioPage";
 import { WrapperProvider } from "./context/WrapperContext";
 import { useAndroidBackHandler } from "./hooks/useAndroidBackHandler";
+import { useAuthCallback } from "./hooks/useAuthCallback";
 
 export const App: React.FC = () => {
   // Navigation & Route state
@@ -45,6 +46,32 @@ export const App: React.FC = () => {
   const sessionEpoch = useRef(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("signin");
+  const [authModalError, setAuthModalError] = useState<string | null>(null);
+
+  const handleRecoveryCallback = useCallback(() => {
+    setAuthError(null);
+    setAuthModalError(null);
+    setAuthInitialMode("update-password");
+    setIsAuthModalOpen(true);
+  }, []);
+
+  const handleAuthCallbackSuccess = useCallback(() => {
+    setAuthError(null);
+    setAuthModalError(null);
+    setIsAuthModalOpen(false);
+  }, []);
+
+  const handleAuthCallbackError = useCallback((message: string) => {
+    setAuthModalError(message);
+    setAuthInitialMode("signin");
+    setIsAuthModalOpen(true);
+  }, []);
+
+  useAuthCallback(supabase, {
+    onRecovery: handleRecoveryCallback,
+    onSuccess: handleAuthCallbackSuccess,
+    onError: handleAuthCallbackError,
+  });
 
   // Domain Data State
   const [accountData, setAccountData] = useState<{
@@ -171,8 +198,7 @@ export const App: React.FC = () => {
       receivedAuthEvent = true;
       applyUser(session?.user ?? null);
       if (!disposed && event === "PASSWORD_RECOVERY") {
-        setAuthInitialMode("update-password");
-        setIsAuthModalOpen(true);
+        handleRecoveryCallback();
       }
     });
 
@@ -195,7 +221,7 @@ export const App: React.FC = () => {
       disposed = true;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [handleRecoveryCallback]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -371,8 +397,10 @@ export const App: React.FC = () => {
       onClose={() => {
         setIsAuthModalOpen(false);
         setAuthInitialMode("signin");
+        setAuthModalError(null);
       }}
       initialMode={authInitialMode}
+      initialError={authModalError}
       user={user}
       onSignOut={handleSignOut}
       onAuthSuccess={() => setIsAuthModalOpen(false)}

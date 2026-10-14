@@ -48,6 +48,8 @@ const db = await import(await moduleUrl('../src/services/db.ts', { '../lib/supab
 const storage = await import(await moduleUrl('../src/utils/storage.ts'));
 const datesUrl = await moduleUrl('../src/utils/dates.ts');
 const quarters = await import(await moduleUrl('../src/utils/quarters.ts', { './dates': datesUrl }));
+const capacitorUrl = `data:text/javascript,${encodeURIComponent(`export const Capacitor = { isNativePlatform: () => globalThis.__horizonNative === true };`)}`;
+const authRedirect = await import(await moduleUrl('../src/utils/authRedirect.ts', { '@capacitor/core': capacitorUrl }));
 
 const theme = {
   id: 'test-wrapper', name: 'A project', description: '', color: 'teal', icon: 'Target',
@@ -63,6 +65,11 @@ const draft = {
 };
 
 beforeEach(() => {
+  globalThis.__horizonNative = false;
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { location: { origin: 'https://horizon.example', pathname: '/' } },
+  });
   const values = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -78,6 +85,27 @@ beforeEach(() => {
   fake.rows = {};
   fake.error = null;
   fake.calls = [];
+});
+
+test('native auth emails return to Horizon instead of a localhost address', () => {
+  globalThis.__horizonNative = true;
+  assert.equal(authRedirect.getAuthRedirectUrl('signup'), 'horizon://auth/callback?flow=signup');
+  assert.equal(authRedirect.getAuthRedirectUrl('recovery'), 'horizon://auth/callback?flow=recovery');
+});
+
+test('auth callbacks distinguish recovery from signup and reject unrelated routes', () => {
+  const recovery = authRedirect.parseAuthCallbackUrl('horizon://auth/callback?flow=recovery#access_token=access&refresh_token=refresh&type=recovery');
+  assert.equal(recovery.flow, 'recovery');
+  assert.equal(recovery.accessToken, 'access');
+  assert.equal(recovery.refreshToken, 'refresh');
+  assert.equal(authRedirect.isRecoveryCallback(recovery), true);
+
+  const signup = authRedirect.parseAuthCallbackUrl('https://horizon.example/?auth=callback&flow=signup&token_hash=hash&type=signup');
+  assert.equal(signup.flow, 'signup');
+  assert.equal(signup.tokenHash, 'hash');
+  assert.equal(signup.otpType, 'signup');
+  assert.equal(authRedirect.isRecoveryCallback(signup), false);
+  assert.equal(authRedirect.parseAuthCallbackUrl('https://horizon.example/#/dashboard'), null);
 });
 
 test('signed-out reads return no private or legacy content and never query the database', async () => {
