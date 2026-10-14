@@ -10,8 +10,36 @@ permissions:
   contents: write
 
 jobs:
+  publish-prebuilt-v011:
+    name: Publish verified v0.1.1 APK
+    if: github.ref_name == 'v0.1.1'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download verified release asset
+        uses: actions/checkout@v4
+        with:
+          ref: 6e59ea1136307cfd4bda61e3a6c24d7b0c9fd821
+          sparse-checkout: release-output
+
+      - name: Verify release asset checksum
+        run: echo "2454e693dbf1e6b1f6b03f9f68faff0adb533bd6815977fdb587198f41aac4a7  release-output/horizon-v0.1.1.apk" | sha256sum --check --strict
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.1
+          name: Horizon Release v0.1.1
+          files: release-output/horizon-v0.1.1.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release:
     name: Build & Release APK
+    if: github.ref_name != 'v0.1.1'
     runs-on: ubuntu-latest
 
     steps:
