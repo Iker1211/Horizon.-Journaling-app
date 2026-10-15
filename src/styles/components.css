@@ -303,14 +303,14 @@
   }
 
   .top-nav {
-    padding: env(safe-area-inset-top, 0px) calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
-    height: calc(58px + env(safe-area-inset-top, 0px));
+    padding: var(--app-inset-top) calc(16px + var(--app-inset-right)) 0 calc(16px + var(--app-inset-left));
+    height: calc(58px + var(--app-inset-top));
   }
 
   /* Content padding adjustment to avoid bottom bar overlap */
   .main-content,
   .dashboard-root {
-    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + var(--app-inset-bottom));
   }
   .main-content {
     padding-left: 16px;
@@ -318,7 +318,7 @@
   }
 
   footer {
-    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(90px + var(--app-inset-bottom)) !important;
   }
 
   /* Hero Section Stacking */

@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(20px, var(--safe-area-top)) max(20px, var(--safe-area-right)) max(20px, var(--safe-area-bottom)) max(20px, var(--safe-area-left));
+  padding: max(20px, var(--app-inset-top)) max(20px, var(--app-inset-right)) max(20px, var(--app-inset-bottom)) max(20px, var(--app-inset-left));
   background: rgba(10, 26, 26, 0.45);
   overscroll-behavior: contain;
   overflow-y: auto;
@@ -14,7 +14,7 @@
 .auth-dialog {
   width: 100%;
   max-width: 440px;
-  max-height: calc(100dvh - max(40px, var(--safe-area-top)) - var(--safe-area-bottom));
+  max-height: calc(100dvh - max(40px, var(--app-inset-top)) - var(--app-inset-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--color-hairline);
@@ -87,8 +87,8 @@
 @keyframes auth-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 560px) {
-  .auth-backdrop { align-items: flex-end; padding: max(12px, var(--safe-area-top)) var(--safe-area-right) 0 var(--safe-area-left); }
-  .auth-dialog { max-width: none; max-height: calc(100dvh - max(12px, var(--safe-area-top))); padding: 20px 24px max(24px, var(--safe-area-bottom)); border-radius: 26px 26px 0 0; border-bottom: none; }
+  .auth-backdrop { align-items: flex-end; padding: max(12px, var(--app-inset-top)) var(--app-inset-right) 0 var(--app-inset-left); }
+  .auth-dialog { max-width: none; max-height: calc(100dvh - max(12px, var(--app-inset-top))); padding: 20px 24px max(24px, var(--app-inset-bottom)); border-radius: 26px 26px 0 0; border-bottom: none; }
   .auth-header { margin-bottom: 22px; }
 }
 

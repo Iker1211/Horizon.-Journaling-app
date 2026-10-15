@@ -96,6 +96,15 @@
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+  --android-inset-top: 0px;
+  --android-inset-right: 0px;
+  --android-inset-bottom: 0px;
+  --android-inset-left: 0px;
+  --app-inset-top: max(var(--safe-area-top), var(--android-inset-top));
+  --app-inset-right: max(var(--safe-area-right), var(--android-inset-right));
+  --app-inset-bottom: max(var(--safe-area-bottom), var(--android-inset-bottom));
+  --app-inset-left: max(var(--safe-area-left), var(--android-inset-left));
+  --mobile-nav-content-height: 72px;
 }
 
 /* Ambient Wrapper Color Washes (Dynamic Living Environment) */
