@@ -61,11 +61,26 @@ jobs:
       - name: 🔐 Configure Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           mkdir -p android/app
-          test -n "$KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64"; exit 1; }
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
-          ls -la android/app/release.keystore
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            test -n "${!name}" || { echo "::error::Missing GitHub repository secret for $name"; exit 1; }
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore || {
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid Base64"
+            exit 1
+          }
+          keytool -list \
+            -keystore android/app/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" > /dev/null || {
+              echo "::error::The keystore password or alias does not match the v0.1.1 signing key"
+              exit 1
+            }
+          echo "Release keystore validated."
 
       - name: 🔨 Build Android Release APK
         working-directory: android
