@@ -417,8 +417,11 @@ export const App: React.FC = () => {
         <main className="welcome-screen">
           <div className="welcome-content">
             <div className="welcome-eyebrow">UN ESPACIO PARA LO QUE IMPORTA</div>
-            <h1 className="welcome-title">Dale dirección<br />a tus días.</h1>
-            <p className="welcome-description">Organiza tus proyectos, escribe lo que aprendes y haz espacio para avanzar. A tu ritmo, con tu propio horizonte.</p>
+            <h1 className="welcome-title">
+              <span>Todo empieza contigo.</span>
+              <em>Conquista tu horizonte desde hoy.</em>
+            </h1>
+            <p className="welcome-description">Organiza tus proyectos, escribe lo que aprendes y convierte cada reflexión en un paso hacia el horizonte que quieres construir.</p>
             {authError && <p className="app-error" role="alert">{authError}</p>}
             {isSupabaseConfigured ? (
               <div className="welcome-actions">

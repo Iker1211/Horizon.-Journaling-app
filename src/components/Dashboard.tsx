@@ -52,13 +52,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="dashboard-root">
       <div className="main-content dashboard-content">
         <header className="dashboard-hero">
+          <div className="dashboard-hero-glow" aria-hidden="true" />
           <div className="dashboard-hero-copy">
-            <p className="dashboard-eyebrow dashboard-date">{todayLabel}</p>
-            <h1>Un paso hoy.<br /><span>Un nuevo horizonte.</span></h1>
+            <p className="dashboard-eyebrow dashboard-date"><span aria-hidden="true">✦</span>{todayLabel}</p>
+            <h1>
+              <span className="dashboard-hero-motto">Todo empieza contigo.</span>
+              <span className="dashboard-hero-submotto">Conquista tu horizonte <em>desde hoy.</em></span>
+            </h1>
             <p className="dashboard-hero-description">
               {hasWrappers
-                ? 'Retoma lo que importa. Una idea, un avance o una reflexión es un buen comienzo.'
-                : 'Haz espacio para tus ideas, organiza tus metas y construye tu propio camino.'}
+                ? 'Tu horizonte no se espera en la distancia: se construye con cada idea, cada avance y cada reflexión que decides guardar.'
+                : 'Haz espacio para lo que importa, escribe tu primera intención y empieza a construir el camino que quieres recorrer.'}
             </p>
             <div className="dashboard-hero-actions">
               <button type="button" className="btn-primary dashboard-primary-action" onClick={hasWrappers ? writeEntry : createWrapper}>
@@ -71,10 +75,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           <div className="dashboard-horizon" aria-label={countdown.is2027orLater ? `${countdown.days} días para cerrar 2027` : `${countdown.days} días para 2027`}>
-            <div className="dashboard-horizon-orbit" aria-hidden="true" />
-            <div className="dashboard-horizon-sun" aria-hidden="true" />
-            <div className="dashboard-horizon-line" aria-hidden="true" />
-            <div className="dashboard-horizon-caption" aria-hidden="true">
+            <div className="dashboard-horizon-caption">
+              <span className="dashboard-horizon-kicker">Horizon 2027</span>
               <span className="dashboard-horizon-number">{countdown.days}</span>
               <span>{countdown.is2027orLater ? 'días para cerrar 2027' : 'días para 2027'}</span>
             </div>

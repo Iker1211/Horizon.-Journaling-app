@@ -15,17 +15,34 @@
 .dashboard-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 24px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 32px;
+  align-items: end;
   overflow: hidden;
-  padding: 36px 40px;
-  border: 1px solid #e7e4d5;
-  border-radius: 28px;
-  background: #f0f0df;
+  min-height: 430px;
+  padding: 52px 52px 44px;
+  border: 1px solid rgba(112, 97, 74, .18);
+  border-radius: 32px;
+  background-color: #efe9dc;
+  background-image:
+    linear-gradient(90deg, rgba(255, 250, 240, .98) 0%, rgba(255, 250, 240, .88) 40%, rgba(255, 250, 240, .28) 72%, rgba(255, 250, 240, .08) 100%),
+    linear-gradient(0deg, rgba(246, 232, 210, .48), transparent 52%),
+    url('/images/horizon-abstract.jpg');
+  background-position: center, center, center 48%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow: 0 18px 50px rgba(75, 71, 57, .08);
 }
 
-.dashboard-hero-copy { position: relative; z-index: 1; }
+.dashboard-hero-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 68% 42%, rgba(255, 211, 151, .32), transparent 25%),
+    linear-gradient(180deg, rgba(255, 255, 255, .18), transparent 40%);
+}
+.dashboard-hero-copy { position: relative; z-index: 1; max-width: 690px; }
 .dashboard-eyebrow {
   color: var(--color-brand-teal);
   font-size: 11px;
@@ -34,22 +51,65 @@
   line-height: 1.5;
   text-transform: uppercase;
 }
-.dashboard-date { margin-bottom: 16px; }
-.dashboard-hero h1 {
-  color: var(--color-brand-teal);
-  font-family: var(--font-display);
-  font-size: clamp(30px, 3.6vw, 44px);
-  font-weight: 700;
-  line-height: 1.16;
-  letter-spacing: -1.8px;
+.dashboard-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 7px 12px;
+  border: 1px solid rgba(26, 58, 58, .12);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, .72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.dashboard-hero h1 span { color: #4b6860; }
+.dashboard-date > span { color: var(--color-brand-ochre); font-size: 12px; }
+.dashboard-hero h1 {
+  color: var(--color-ink);
+  line-height: 1;
+}
+.dashboard-hero-motto,
+.dashboard-hero-submotto { display: block; }
+.dashboard-hero-motto {
+  font-family: var(--font-display);
+  font-size: clamp(44px, 5.5vw, 68px);
+  font-weight: 750;
+  line-height: 1.02;
+  letter-spacing: -3px;
+}
+.dashboard-hero-submotto {
+  max-width: 620px;
+  margin-top: 10px;
+  color: #47635b;
+  font-family: var(--font-primary);
+  font-size: clamp(24px, 3vw, 38px);
+  font-weight: 540;
+  line-height: 1.12;
+  letter-spacing: -1.5px;
+}
+.dashboard-hero-submotto em {
+  position: relative;
+  color: #a45c4b;
+  font-family: inherit;
+  font-style: normal;
+  white-space: nowrap;
+}
+.dashboard-hero-submotto em::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -3px;
+  left: 0;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(225, 166, 90, .38);
+}
 .dashboard-hero-description {
-  max-width: 430px;
-  margin: 16px 0 22px;
-  color: #4b5b53;
-  font-size: 15px;
-  line-height: 1.6;
+  max-width: 580px;
+  margin: 22px 0 26px;
+  color: #485950;
+  font-size: 16px;
+  line-height: 1.65;
 }
 .dashboard-hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; }
 .dashboard-root .dashboard-primary-action {
@@ -82,59 +142,34 @@
 .dashboard-root button:focus-visible { outline: 3px solid var(--color-brand-teal); outline-offset: 4px; }
 .dashboard-root button svg { flex-shrink: 0; }
 
-.dashboard-horizon { position: relative; min-height: 240px; align-self: stretch; overflow: hidden; }
-.dashboard-horizon-orbit {
-  position: absolute;
-  top: 1px;
-  left: 50%;
-  width: 250px;
-  height: 250px;
-  border: 1px solid rgba(26, 58, 58, 0.12);
-  border-radius: 50%;
-  transform: translateX(-50%);
-}
-.dashboard-horizon-orbit::after {
-  content: '';
-  position: absolute;
-  inset: 21px;
-  border: 1px solid rgba(26, 58, 58, 0.09);
-  border-radius: 50%;
-}
-.dashboard-horizon-sun {
-  position: absolute;
-  left: 50%;
-  top: 31px;
-  width: 155px;
-  height: 155px;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(160deg, #e9bd6d, #f3cea0);
-}
-.dashboard-horizon-line {
-  position: absolute;
-  top: 123px;
-  left: 0;
-  right: 0;
-  height: 150px;
-  border-top: 1px solid rgba(26, 58, 58, 0.18);
-  background: linear-gradient(#f0f0dfe6, #f0f0df 60%);
-}
+.dashboard-horizon { position: relative; z-index: 1; align-self: end; }
 .dashboard-horizon-caption {
-  position: absolute;
-  top: 142px;
-  left: 0;
-  right: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  text-align: center;
+  gap: 3px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, .68);
+  border-radius: 20px;
+  background: rgba(255, 250, 240, .72);
+  box-shadow: 0 12px 30px rgba(79, 63, 45, .10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  text-align: left;
   color: #4b5b53;
   font-size: 12px;
+}
+.dashboard-horizon-kicker {
+  margin-bottom: 4px;
+  color: #875f3d;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
 }
 .dashboard-horizon-number {
   color: var(--color-brand-teal);
   font-family: var(--font-display);
-  font-size: 50px;
+  font-size: 46px;
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -2px;
@@ -246,12 +281,9 @@
 }
 
 @media (max-width: 900px) {
-  .dashboard-hero { grid-template-columns: minmax(0, 1fr) 200px; padding: 30px; }
-  .dashboard-horizon { min-height: 255px; }
-  .dashboard-horizon-orbit { width: 210px; height: 210px; top: 20px; }
-  .dashboard-horizon-sun { top: 49px; width: 135px; height: 135px; }
-  .dashboard-horizon-line { top: 132px; }
-  .dashboard-horizon-caption { top: 148px; }
+  .dashboard-hero { grid-template-columns: minmax(0, 1fr) 155px; min-height: 400px; padding: 40px 34px 34px; }
+  .dashboard-hero-motto { font-size: clamp(42px, 7vw, 58px); }
+  .dashboard-horizon-caption { padding: 16px; }
   .dashboard-lower-grid { grid-template-columns: minmax(0, 1fr); }
   .dashboard-sidebar { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
   .dashboard-empty-wrapper { flex-wrap: wrap; }
@@ -261,18 +293,27 @@
 
 @media (max-width: 600px) {
   .dashboard-content { gap: 26px; padding-top: 16px; }
-  .dashboard-hero { display: block; padding: 25px 22px 18px; border-radius: 22px; }
-  .dashboard-date { font-size: 10px; margin-bottom: 16px; letter-spacing: .8px; }
-  .dashboard-hero h1 { font-size: clamp(28px, 7.7vw, 38px); line-height: 1.18; letter-spacing: -1.25px; }
-  .dashboard-hero-description { font-size: 14px; margin: 14px 0 19px; line-height: 1.6; }
+  .dashboard-hero {
+    display: block;
+    min-height: 510px;
+    padding: 28px 22px 20px;
+    border-radius: 24px;
+    background-image:
+      linear-gradient(180deg, rgba(255, 250, 240, .97) 0%, rgba(255, 250, 240, .82) 56%, rgba(255, 250, 240, .28) 100%),
+      url('/images/horizon-abstract.jpg');
+    background-position: center, 61% center;
+  }
+  .dashboard-date { margin-bottom: 18px; padding: 6px 10px; font-size: 9px; letter-spacing: .7px; }
+  .dashboard-hero-motto { font-size: clamp(40px, 12vw, 54px); line-height: .98; letter-spacing: -2.2px; }
+  .dashboard-hero-submotto { margin-top: 11px; font-size: clamp(23px, 7vw, 31px); line-height: 1.12; letter-spacing: -1px; }
+  .dashboard-hero-description { font-size: 14px; margin: 18px 0 21px; line-height: 1.6; }
   .dashboard-hero-actions { align-items: stretch; gap: 7px; }
   .dashboard-root .dashboard-primary-action { width: 100%; min-height: 48px; }
   .dashboard-hero-actions .dashboard-text-action { flex: 1; font-size: 12px; }
-  .dashboard-horizon { position: static; min-height: 0; overflow: visible; }
-  .dashboard-horizon-orbit, .dashboard-horizon-line { display: none; }
-  .dashboard-horizon-sun { top: -39px; left: auto; right: -43px; width: 142px; height: 142px; transform: none; opacity: .36; }
-  .dashboard-horizon-caption { position: static; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 5px; margin-top: 7px; padding-top: 12px; border-top: 1px solid rgba(26, 58, 58, .1); font-size: 11px; }
-  .dashboard-horizon-number { font-family: var(--font-primary); font-size: 13px; letter-spacing: 0; line-height: 1.5; }
+  .dashboard-horizon { position: absolute; right: 16px; bottom: 14px; }
+  .dashboard-horizon-caption { flex-direction: row; align-items: baseline; gap: 5px; padding: 9px 12px; border-radius: 14px; font-size: 10px; }
+  .dashboard-horizon-kicker { display: none; }
+  .dashboard-horizon-number { font-family: var(--font-primary); font-size: 12px; font-weight: 750; letter-spacing: 0; line-height: 1.5; }
   .dashboard-overview { margin-top: -12px; padding-bottom: 14px; }
   .dashboard-overview > button { min-height: 66px; justify-content: center; padding: 8px; gap: 8px; }
   .dashboard-stat-icon { display: none; }
