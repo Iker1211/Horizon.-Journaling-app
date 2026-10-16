@@ -1,12 +1,14 @@
 import type { BlogDraft } from '../types';
 
 /** Legacy clay_2027_* keys have no owner and must never be read or migrated into an account. */
-function draftKey(userId: string): string | null {
-  return userId ? `horizon:${encodeURIComponent(userId)}:blog-draft:v2` : null;
+function draftKey(userId: string, entryId?: string | null): string | null {
+  if (!userId) return null;
+  const base = `horizon:${encodeURIComponent(userId)}:blog-draft:v2`;
+  return entryId ? `${base}:entry:${encodeURIComponent(entryId)}` : base;
 }
 
-export function loadBlogDraft(userId: string): BlogDraft | null {
-  const key = draftKey(userId);
+export function loadBlogDraft(userId: string, entryId?: string | null): BlogDraft | null {
+  const key = draftKey(userId, entryId);
   if (!key) return null;
   try {
     const data = localStorage.getItem(key);
@@ -21,15 +23,15 @@ export function loadBlogDraft(userId: string): BlogDraft | null {
   }
 }
 
-export function saveBlogDraft(draft: BlogDraft, userId: string): void {
-  const key = draftKey(userId);
+export function saveBlogDraft(draft: BlogDraft, userId: string, entryId?: string | null): void {
+  const key = draftKey(userId, entryId);
   if (!key) return;
   // Let the editor distinguish a real saved draft from unavailable device storage.
   localStorage.setItem(key, JSON.stringify(draft));
 }
 
-export function clearBlogDraft(userId: string): void {
-  const key = draftKey(userId);
+export function clearBlogDraft(userId: string, entryId?: string | null): void {
+  const key = draftKey(userId, entryId);
   if (!key) return;
   localStorage.removeItem(key);
 }

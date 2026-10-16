@@ -195,6 +195,20 @@ test('drafts are isolated by explicit owner and legacy anonymous drafts are igno
   assert.equal(localStorage.getItem('clay_2027_blog_draft_v1'), JSON.stringify(draft));
 });
 
+test('unsaved edits are isolated by account and entry', () => {
+  const editA = { ...draft, title: 'Changes to entry A' };
+  const editB = { ...draft, title: 'Changes to entry B' };
+  storage.saveBlogDraft(editA, 'account-a', 'entry-a');
+  storage.saveBlogDraft(editB, 'account-a', 'entry-b');
+  assert.deepEqual(storage.loadBlogDraft('account-a', 'entry-a'), editA);
+  assert.deepEqual(storage.loadBlogDraft('account-a', 'entry-b'), editB);
+  assert.equal(storage.loadBlogDraft('account-b', 'entry-a'), null);
+  assert.equal(storage.loadBlogDraft('account-a'), null);
+  storage.clearBlogDraft('account-a', 'entry-a');
+  assert.equal(storage.loadBlogDraft('account-a', 'entry-a'), null);
+  assert.deepEqual(storage.loadBlogDraft('account-a', 'entry-b'), editB);
+});
+
 test('malformed drafts are ignored and unavailable device storage reports an unsaved draft', () => {
   localStorage.setItem('horizon:account-a:blog-draft:v2', '{bad json');
   assert.equal(storage.loadBlogDraft('account-a'), null);

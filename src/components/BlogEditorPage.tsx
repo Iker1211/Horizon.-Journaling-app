@@ -15,6 +15,7 @@ import {
   ListOrdered,
   CheckSquare,
   Code,
+  Link,
   Minus,
   Eye,
   Edit3,
@@ -45,6 +46,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const didPublishRef = useRef(false);
 
   // Determine default theme
@@ -69,6 +71,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
   const [lastSavedText, setLastSavedText] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const titleRef = useRef<HTMLInputElement | null>(null);
 
   // Current Big Theme object
   const currentTheme = themes.find(t => t.id === themeId);
@@ -99,9 +102,16 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
   // Flush draft to localStorage synchronously
   const flushDraft = useCallback((updateStatus = true) => {
     const s = stateRef.current;
-    if (s.entryToEdit || didPublishRef.current) return; // Do not overwrite drafts if editing an existing entry
+    if (didPublishRef.current) return;
     const hasContent = Boolean(s.title.trim() || s.content.trim() || s.summary.trim());
-    if (hasContent) {
+    const hasChanges = !s.entryToEdit ||
+      s.title !== s.entryToEdit.title ||
+      s.themeId !== s.entryToEdit.themeId ||
+      s.date !== s.entryToEdit.date ||
+      s.summary !== (s.entryToEdit.summary || "") ||
+      s.content !== (s.entryToEdit.content || "") ||
+      s.tagsInput !== (s.entryToEdit.tags?.join(", ") || "");
+    if (hasContent && hasChanges) {
       const now = new Date();
       const draft: BlogDraft = {
         title: s.title,
@@ -112,7 +122,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
         tagsInput: s.tagsInput,
         savedAt: now.toISOString(),
       };
-      try { saveBlogDraft(draft, userId); } catch { if (updateStatus) setLastSavedText("No se pudo guardar en este dispositivo"); return; }
+      try { saveBlogDraft(draft, userId, s.entryToEdit?.id); } catch { if (updateStatus) setLastSavedText("No se pudo guardar en este dispositivo"); return; }
       if (updateStatus) setLastSavedText(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     }
   }, [userId]);
@@ -145,14 +155,18 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
   // Initialize or restore draft
   useEffect(() => {
     if (entryToEdit) {
-      setTitle(entryToEdit.title);
-      setThemeId(entryToEdit.themeId);
-      setDate(entryToEdit.date);
-      setSummary(entryToEdit.summary || "");
-      setContent(entryToEdit.content || "");
-      setTagsInput(entryToEdit.tags ? entryToEdit.tags.join(", ") : "");
-      setIsRestoredDraft(false);
-      setLastSavedText(null);
+      const editDraft = loadBlogDraft(userId, entryToEdit.id);
+      const shouldRestore = Boolean(
+        editDraft?.savedAt && new Date(editDraft.savedAt).getTime() > new Date(entryToEdit.updatedAt).getTime()
+      );
+      setTitle(shouldRestore ? editDraft!.title : entryToEdit.title);
+      setThemeId(shouldRestore && themes.some(t => t.id === editDraft!.themeId) ? editDraft!.themeId : entryToEdit.themeId);
+      setDate(shouldRestore ? editDraft!.date : entryToEdit.date);
+      setSummary(shouldRestore ? editDraft!.summary : entryToEdit.summary || "");
+      setContent(shouldRestore ? editDraft!.content : entryToEdit.content || "");
+      setTagsInput(shouldRestore ? editDraft!.tagsInput : entryToEdit.tags ? entryToEdit.tags.join(", ") : "");
+      setIsRestoredDraft(shouldRestore);
+      setLastSavedText(shouldRestore ? new Date(editDraft!.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null);
       hasInitializedRef.current = true;
     } else if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
@@ -189,10 +203,15 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
 
   // Real-time debounced auto-save for new entries
   useEffect(() => {
-    if (entryToEdit) return;
-
     const hasContent = Boolean(title.trim() || content.trim() || summary.trim());
-    if (hasContent) {
+    const hasChanges = !entryToEdit ||
+      title !== entryToEdit.title ||
+      themeId !== entryToEdit.themeId ||
+      date !== entryToEdit.date ||
+      summary !== (entryToEdit.summary || "") ||
+      content !== (entryToEdit.content || "") ||
+      tagsInput !== (entryToEdit.tags?.join(", ") || "");
+    if (hasContent && hasChanges) {
       const timer = setTimeout(() => {
         const now = new Date();
         const draft: BlogDraft = {
@@ -205,11 +224,14 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           savedAt: now.toISOString(),
         };
         if (didPublishRef.current) return;
-        try { saveBlogDraft(draft, userId); } catch { setLastSavedText("No se pudo guardar en este dispositivo"); return; }
+        try { saveBlogDraft(draft, userId, entryToEdit?.id); } catch { setLastSavedText("No se pudo guardar en este dispositivo"); return; }
         setLastSavedText(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       }, 500);
 
       return () => clearTimeout(timer);
+    } else if (entryToEdit) {
+      try { clearBlogDraft(userId, entryToEdit.id); } catch { /* Keep editing even if device storage is unavailable. */ }
+      setLastSavedText(null);
     }
   }, [title, themeId, date, summary, content, tagsInput, entryToEdit, userId]);
 
@@ -238,31 +260,54 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     }, 10);
   };
 
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const modifier = event.metaKey || event.ctrlKey;
+    if (modifier && event.key.toLowerCase() === "b") {
+      event.preventDefault();
+      insertMarkdown("**", "**", "texto en negrita");
+    } else if (modifier && event.key.toLowerCase() === "i") {
+      event.preventDefault();
+      insertMarkdown("*", "*", "texto en cursiva");
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      insertMarkdown("  ");
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode !== "write") return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.max(420, textarea.scrollHeight)}px`;
+  }, [content, viewMode]);
+
   const handleDiscardDraft = () => {
     if (window.confirm("¿Deseas descartar este borrador y comenzar una hoja en blanco?")) {
-      try { clearBlogDraft(userId); } catch { setSaveError("No se pudo descartar el borrador en este dispositivo."); return; }
-      setTitle("");
-      setThemeId(getFallbackThemeId());
-      setDate(getTodayDateString());
-      setSummary("");
-      setContent("");
-      setTagsInput("");
+      try { clearBlogDraft(userId, entryToEdit?.id); } catch { setSaveError("No se pudo descartar el borrador en este dispositivo."); return; }
+      setTitle(entryToEdit?.title || "");
+      setThemeId(entryToEdit?.themeId || getFallbackThemeId());
+      setDate(entryToEdit?.date || getTodayDateString());
+      setSummary(entryToEdit?.summary || "");
+      setContent(entryToEdit?.content || "");
+      setTagsInput(entryToEdit?.tags?.join(", ") || "");
       setIsRestoredDraft(false);
       setLastSavedText(null);
     }
   };
 
-  const handlePublish = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePublish = async () => {
     if (isSaving) return;
     if (!title.trim()) {
-      alert("Por favor escribe un título para la entrada.");
+      setValidationError("Escribe un título antes de guardar.");
+      titleRef.current?.focus();
       return;
     }
     if (!themeId) {
-      alert("Por favor selecciona un Wrapper para estructurar esta entrada.");
+      setValidationError("Selecciona un Wrapper antes de guardar.");
       return;
     }
+    setValidationError(null);
 
     const tags = tagsInput
       .split(",")
@@ -277,7 +322,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       title: title.trim(),
       themeId,
       date,
-      summary: summary.trim() || content.slice(0, 140) + "...",
+      summary: summary.trim() || (content.trim() ? `${content.trim().slice(0, 140)}${content.trim().length > 140 ? "…" : ""}` : ""),
       content: content.trim(),
       tags,
       readTimeMinutes,
@@ -290,9 +335,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     try {
       await onSave(newEntry);
       didPublishRef.current = true;
-      if (!entryToEdit) {
-        try { clearBlogDraft(userId); } catch { /* The cloud copy was saved successfully. */ }
-      }
+      try { clearBlogDraft(userId, entryToEdit?.id); } catch { /* The cloud copy was saved successfully. */ }
       onBack();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'No se pudo guardar. Tu texto sigue aquí.');
@@ -301,13 +344,24 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
     }
   };
 
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handlePublish();
+      }
+    };
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  });
+
   // Word count and read time
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
-  const estimatedReadTime = Math.max(1, Math.round(wordCount / 180));
+  const estimatedReadTime = wordCount ? Math.max(1, Math.round(wordCount / 180)) : 0;
 
   return (
     <div
-      className="single-column-sheet"
+      className={`single-column-sheet editor-page editor-page--${viewMode}`}
       style={{
         borderTop: currentTheme ? `5px solid var(--color-brand-${currentTheme.color})` : undefined,
       }}
@@ -315,8 +369,8 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       {/* Top Header with Back button and Actions */}
       <div className="editor-top-nav">
         <button type="button" onClick={() => { flushDraft(); onBack(); }} disabled={isSaving} className="editor-back-btn">
-          <ArrowLeft size={16} />
-          <span>Volver a Bitácora</span>
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>Bitácora</span>
         </button>
 
         <div className="editor-actions-group">
@@ -337,15 +391,17 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
               className={`editor-mode-btn ${viewMode === "write" ? "active" : ""}`}
               onClick={() => setViewMode("write")}
               title="Modo escritura"
+              aria-pressed={viewMode === "write"}
             >
               <Edit3 size={13} />
               <span>Escribir</span>
             </button>
             <button
               type="button"
-              className={`editor-mode-btn ${viewMode === "split" ? "active" : ""}`}
+              className={`editor-mode-btn editor-mode-btn--split ${viewMode === "split" ? "active" : ""}`}
               onClick={() => setViewMode("split")}
               title="Pantalla dividida (Escritura + Vista Previa)"
+              aria-pressed={viewMode === "split"}
             >
               <Columns size={13} />
               <span>Dividido</span>
@@ -355,9 +411,10 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
               className={`editor-mode-btn ${viewMode === "preview" ? "active" : ""}`}
               onClick={() => setViewMode("preview")}
               title="Vista previa completa de la hoja Markdown"
+              aria-pressed={viewMode === "preview"}
             >
               <Eye size={13} />
-              <span>Vista Previa</span>
+              <span>Vista</span>
             </button>
           </div>
 
@@ -365,15 +422,14 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             type="button"
             onClick={handlePublish}
             disabled={isSaving}
-            className="btn-primary btn-sm clay-button-interactive"
-            style={{ padding: "8px 18px", fontWeight: 700 }}
+            className="btn-primary editor-save-button editor-save-button--desktop"
           >
             {isSaving ? "Guardando…" : "Guardar entrada"}
           </button>
         </div>
       </div>
 
-      {saveError && <p className="form-error" role="alert">{saveError}</p>}
+      {(saveError || validationError) && <p className="form-error editor-form-error" role="alert">{saveError || validationError}</p>}
 
       {/* Active Wrapper Context Pill */}
       {currentTheme && (
@@ -413,7 +469,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       )}
 
       {/* Restored Draft Alert */}
-      {isRestoredDraft && !entryToEdit && (
+      {isRestoredDraft && (
         <div
           style={{
             backgroundColor: "var(--color-surface-soft)",
@@ -431,7 +487,9 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Sparkles size={16} color="var(--color-brand-peach)" />
             <span>
-              Restauramos tu borrador pendiente guardado en este equipo. Tu texto no se pierde al cambiar de pestaña.
+              {entryToEdit
+                ? "Restauramos cambios de esta entrada que todavía no habías guardado."
+                : "Restauramos tu borrador pendiente guardado en este equipo."}
             </span>
           </div>
           <button
@@ -460,10 +518,9 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
       <div className="editor-theme-wrapper-bar">
         <div className="editor-theme-select-row">
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span className="caption-uppercase" style={{ color: "var(--color-muted)" }}>
-              Wrapper:
-            </span>
+            <label htmlFor="entry-wrapper" className="caption-uppercase" style={{ color: "var(--color-muted)" }}>Wrapper:</label>
             <select
+              id="entry-wrapper"
               value={themeId}
               onChange={e => setThemeId(e.target.value)}
               className="select-custom"
@@ -511,8 +568,9 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
         {/* Metadata Chips: Date, Tags */}
         <div className="editor-meta-chips-row">
           <div className="editor-meta-item">
-            <span className="caption-uppercase" style={{ fontSize: 11 }}>Fecha:</span>
+            <label htmlFor="entry-date" className="caption-uppercase" style={{ fontSize: 11 }}>Fecha:</label>
             <input
+              id="entry-date"
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
@@ -521,8 +579,9 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           </div>
 
           <div className="editor-meta-item" style={{ flex: 1, minWidth: 200 }}>
-            <span className="caption-uppercase" style={{ fontSize: 11 }}>Etiquetas:</span>
+            <label htmlFor="entry-tags" className="caption-uppercase" style={{ fontSize: 11 }}>Etiquetas:</label>
             <input
+              id="entry-tags"
               type="text"
               placeholder="IA, Salud, 2027..."
               value={tagsInput}
@@ -536,12 +595,13 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
 
       {/* Markdown Formatting Toolbar */}
       {viewMode !== "preview" && (
-        <div className="editor-markdown-toolbar">
+        <div className="editor-markdown-toolbar" role="toolbar" aria-label="Formato Markdown">
           <button
             type="button"
             className="toolbar-btn"
             onClick={() => insertMarkdown("**", "**", "texto en negrita")}
             title="Negrita (**texto**)"
+            aria-label="Negrita"
           >
             <Bold size={15} />
           </button>
@@ -550,6 +610,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("*", "*", "texto en cursiva")}
             title="Cursiva (*texto*)"
+            aria-label="Cursiva"
           >
             <Italic size={15} />
           </button>
@@ -561,6 +622,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("# ", "", "Título Principal")}
             title="Encabezado 1 (# Título)"
+            aria-label="Encabezado de nivel 1"
           >
             <Heading1 size={16} />
           </button>
@@ -569,6 +631,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("## ", "", "Sección")}
             title="Encabezado 2 (## Sección)"
+            aria-label="Encabezado de nivel 2"
           >
             <Heading2 size={16} />
           </button>
@@ -577,6 +640,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("### ", "", "Subsección")}
             title="Encabezado 3 (### Subsección)"
+            aria-label="Encabezado de nivel 3"
           >
             <Heading3 size={16} />
           </button>
@@ -588,6 +652,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("> ", "", "Cita o reflexión clave")}
             title="Bloque de Cita (> cita)"
+            aria-label="Cita"
           >
             <Quote size={15} />
           </button>
@@ -596,6 +661,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("- ", "", "Elemento de lista")}
             title="Lista con viñetas (- elemento)"
+            aria-label="Lista con viñetas"
           >
             <List size={15} />
           </button>
@@ -604,6 +670,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("1. ", "", "Paso numerado")}
             title="Lista numerada (1. paso)"
+            aria-label="Lista numerada"
           >
             <ListOrdered size={15} />
           </button>
@@ -612,6 +679,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("- [ ] ", "", "Meta o tarea por completar")}
             title="Lista de tareas (- [ ] tarea)"
+            aria-label="Lista de tareas"
           >
             <CheckSquare size={15} />
           </button>
@@ -623,14 +691,25 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("`", "`", "código")}
             title="Código en línea (`código`)"
+            aria-label="Código en línea"
           >
             <Code size={15} />
           </button>
           <button
             type="button"
             className="toolbar-btn"
+            onClick={() => insertMarkdown("[", "](https://)", "texto del enlace")}
+            title="Enlace"
+            aria-label="Insertar enlace"
+          >
+            <Link size={15} />
+          </button>
+          <button
+            type="button"
+            className="toolbar-btn"
             onClick={() => insertMarkdown("\n```\n", "\n```\n", "// Escribe código o bloque aquí")}
             title="Bloque de código (```)"
+            aria-label="Bloque de código"
           >
             <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 800 }}>&lt;/&gt;</span>
           </button>
@@ -639,6 +718,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
             className="toolbar-btn"
             onClick={() => insertMarkdown("\n---\n", "", "")}
             title="Línea divisoria (---)"
+            aria-label="Línea divisoria"
           >
             <Minus size={15} />
           </button>
@@ -649,6 +729,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
               className="toolbar-btn"
               onClick={() => setShowMarkdownHelp(!showMarkdownHelp)}
               title="Guía rápida de sintaxis Markdown"
+              aria-expanded={showMarkdownHelp}
               style={{ width: "auto", padding: "0 8px", fontSize: 12, gap: 4 }}
             >
               <HelpCircle size={14} />
@@ -693,25 +774,32 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
           {/* Left: Writing Area */}
           <div className="editor-canvas-card">
             <input
+              ref={titleRef}
               type="text"
               placeholder="Título de la reflexión..."
               value={title}
               onChange={e => setTitle(e.target.value)}
               className="editor-title-input"
+              aria-label="Título de la entrada"
+              aria-invalid={Boolean(validationError && !title.trim())}
             />
-            <input
-              type="text"
+            <textarea
+              rows={2}
               placeholder="Resumen o extracto breve..."
               value={summary}
               onChange={e => setSummary(e.target.value)}
               className="editor-summary-input"
+              aria-label="Resumen de la entrada"
             />
             <textarea
               ref={textareaRef}
               placeholder="Escribe tu reflexión en Markdown..."
               value={content}
               onChange={e => setContent(e.target.value)}
+              onKeyDown={handleEditorKeyDown}
               className="editor-markdown-textarea"
+              aria-label="Contenido Markdown"
+              spellCheck="true"
             />
           </div>
 
@@ -760,28 +848,45 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({
         /* Normal Single-Column Writing Canvas */
         <div className="editor-canvas-card">
           <input
+            ref={titleRef}
             type="text"
             placeholder="Título de la reflexión..."
             value={title}
             onChange={e => setTitle(e.target.value)}
             className="editor-title-input"
+            aria-label="Título de la entrada"
+            aria-invalid={Boolean(validationError && !title.trim())}
           />
-          <input
-            type="text"
+          <textarea
+            rows={2}
             placeholder="Resumen o extracto breve (opcional)..."
             value={summary}
             onChange={e => setSummary(e.target.value)}
             className="editor-summary-input"
+            aria-label="Resumen de la entrada"
           />
           <textarea
             ref={textareaRef}
             placeholder="Escribe libremente tus aprendizajes, modelos mentales o dificultades del día en Markdown...&#10;&#10;Usa # para títulos, - para listas, > para citas o **negrita** para resaltar."
             value={content}
             onChange={e => setContent(e.target.value)}
+            onKeyDown={handleEditorKeyDown}
             className="editor-markdown-textarea"
+            aria-label="Contenido Markdown"
+            spellCheck="true"
           />
         </div>
       )}
+
+      <div className="editor-mobile-actions" aria-label="Acciones del editor">
+        <div className="editor-mobile-status">
+          <Check size={14} aria-hidden="true" />
+          <span>{lastSavedText ? `Borrador ${lastSavedText}` : `${wordCount} palabras`}</span>
+        </div>
+        <button type="button" onClick={handlePublish} disabled={isSaving} className="btn-primary editor-save-button">
+          {isSaving ? "Guardando…" : "Guardar"}
+        </button>
+      </div>
     </div>
   );
 };

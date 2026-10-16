@@ -118,15 +118,6 @@ button svg { flex-shrink: 0; }
   .blog-card-title, .theme-title, .reader-hero-title { overflow-wrap: anywhere; }
   .blog-card-top { flex-wrap: wrap; }
   .blog-wrapper-badge { max-width: 100%; overflow-wrap: anywhere; }
-  .single-column-sheet, .reader-page-container { padding: 0; }
-  .editor-top-nav { gap: 14px; align-items: stretch; }
-  .editor-actions-group { flex-wrap: wrap; gap: 12px; justify-content: space-between; }
-  .editor-mode-toggle { max-width: 100%; }
-  .editor-mode-btn { min-height: 44px; }
-  .editor-autosave-badge { width: 100%; }
-  .editor-canvas-card, .reader-article-sheet { padding: 22px 16px; box-shadow: none; }
-  .editor-toolbar { gap: 2px; }
-  .editor-toolbar-btn { min-width: 40px; min-height: 44px; }
   .markdown-sheet-content { overflow-wrap: anywhere; }
   .markdown-sheet-content pre, .markdown-sheet-content table { max-width: 100%; overflow-x: auto; }
   .markdown-sheet-content table { display: block; }
