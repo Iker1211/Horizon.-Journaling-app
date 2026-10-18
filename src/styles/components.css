@@ -24,6 +24,54 @@
   cursor: pointer;
 }
 
+.nav-motivation {
+  width: clamp(180px, 22vw, 290px);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-body);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -.15px;
+}
+
+.nav-motivation::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-brand-peach);
+  box-shadow: 0 0 0 5px rgba(238, 160, 130, .10);
+}
+
+.nav-motivation span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: nav-message-in .4s ease-out both;
+}
+
+.nav-motivation:hover { color: var(--color-ink); }
+
+@keyframes nav-message-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-motivation span { animation: none; }
+}
+
 .clay-logo-monolith {
   transition: transform 0.25s var(--ease-spring);
 }

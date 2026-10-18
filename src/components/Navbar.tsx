@@ -1,7 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActiveTab } from '../types';
 import { LayoutDashboard, Calendar, Layers, BookOpen, Plus } from 'lucide-react';
-import { FireGoatLogo } from './FireGoatLogo';
+
+const MOTIVATIONAL_MESSAGES = [
+  'Todo empieza contigo.',
+  'Un paso pequeño también cuenta.',
+  'Tu ritmo también es progreso.',
+  'Lo importante merece espacio.',
+  'Hoy también puedes empezar.',
+  'Avanza con calma, pero avanza.',
+  'Escribe lo que no quieres olvidar.',
+  'Tu atención construye tu horizonte.',
+] as const;
+
+function initialMessageIndex() {
+  return Math.floor(Date.now() / 18_000) % MOTIVATIONAL_MESSAGES.length;
+}
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -14,6 +28,18 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, userDisplayName, userAvatarUrl, onOpenAuth }) => {
+  const [messageIndex, setMessageIndex] = useState(initialMessageIndex);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setMessageIndex(index => (index + 1) % MOTIVATIONAL_MESSAGES.length);
+      }
+    }, 18_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const tabs = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, active: activeTab === 'dashboard' },
     { id: 'themes', label: 'Wrappers', icon: Layers, active: activeTab === 'themes' || activeTab === 'wrapper-studio' },
@@ -23,9 +49,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQ
 
   return (
     <header className="top-nav">
-      <button type="button" className="nav-brand" onClick={() => setActiveTab('dashboard')} aria-label="Horizon, ir al inicio">
-        <FireGoatLogo size={34} />
-        <span className="nav-brand-title">Horizon <span className="nav-brand-badge">2027</span></span>
+      <button type="button" className="nav-motivation" onClick={() => setActiveTab('dashboard')} aria-label="Ir al inicio" title={MOTIVATIONAL_MESSAGES[messageIndex]}>
+        <span key={messageIndex}>{MOTIVATIONAL_MESSAGES[messageIndex]}</span>
       </button>
       <nav className="nav-tabs" aria-label="Navegación principal">
         {tabs.map(({ id, label, icon: Icon, active }) => (
@@ -40,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQ
         </button>
         <button type="button" className={`nav-account-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} aria-label={userEmail ? 'Abrir mi perfil' : 'Iniciar sesión'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
           <span className="nav-account-avatar" aria-hidden="true">{userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : (userDisplayName || userEmail || 'H').trim()[0]?.toUpperCase()}</span>
-          <span>{userDisplayName?.trim() || (userEmail ? 'Mi perfil' : 'Entrar')}</span>
+          <span className="nav-account-label">{userDisplayName?.trim() || (userEmail ? 'Mi perfil' : 'Entrar')}</span>
         </button>
       </div>
     </header>
