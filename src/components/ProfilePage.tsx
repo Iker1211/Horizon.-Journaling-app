@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { AlertCircle, Camera, CheckCircle2, Download, KeyRound, LoaderCircle, LogOut, Mail, RefreshCw, ShieldAlert, Trash2, UserRound } from 'lucide-react';
-import type { UserProfile } from '../types';
+import type { AvatarCharacterId, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 import { getAuthRedirectUrl } from '../utils/authRedirect';
 import { validateAvatarFile } from '../utils/avatar';
 import { buildAccountExport, deliverAccountExport } from '../utils/accountExport';
 import { AvatarEditor } from './AvatarEditor';
+import { AvatarCharacterPicker } from './AvatarCharacterPicker';
+import { ProfileAvatar } from './ProfileAvatar';
+import { DEFAULT_AVATAR_CHARACTER } from '../utils/avatarCharacters';
 
 interface ProfilePageProps {
   user: User;
@@ -18,16 +21,13 @@ interface ProfilePageProps {
   onSave: (patch: Partial<Pick<UserProfile, 'displayName' | 'bio' | 'cycleStartDate'>>) => Promise<void>;
   onAvatarSave: (blob: Blob) => Promise<void>;
   onAvatarRemove: () => Promise<void>;
+  onAvatarCharacterSelect: (id: AvatarCharacterId | null) => Promise<void>;
   onSignOut: () => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
+  accountActionsEnabled?: boolean;
 }
 
 type BusyAction = 'profile' | 'avatar' | 'email' | 'password' | 'export' | 'delete' | 'signout' | null;
-
-function initials(name: string, email?: string) {
-  const source = name.trim() || email?.split('@')[0] || 'H';
-  return source.split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('');
-}
 
 function describeError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : '';
@@ -37,7 +37,7 @@ function describeError(cause: unknown) {
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
-  user, profile, avatarUrl, loading, error, onRetry, onSave, onAvatarSave, onAvatarRemove, onSignOut, onDirtyChange,
+  user, profile, avatarUrl, loading, error, onRetry, onSave, onAvatarSave, onAvatarRemove, onAvatarCharacterSelect, onSignOut, onDirtyChange, accountActionsEnabled = true,
 }) => {
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -53,6 +53,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [pendingCharacter, setPendingCharacter] = useState<AvatarCharacterId | null>(null);
+  const previousProfile = useRef(profile);
+  useEffect(() => {
+    if (!profile) return;
+    const previous = previousProfile.current;
+    // Avatar changes must not remount the form or erase a name/bio being edited.
+    setDisplayName(value => value === (previous?.displayName ?? '') ? profile.displayName : value);
+    setBio(value => value === (previous?.bio ?? '') ? profile.bio : value);
+    setCycleStartDate(value => value === (previous?.cycleStartDate ?? '') ? profile.cycleStartDate : value);
+    previousProfile.current = profile;
+  }, [profile]);
 
   const dirty = profile ? (
     displayName !== profile.displayName || bio !== profile.bio || cycleStartDate !== profile.cycleStartDate
@@ -104,7 +115,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     <div className="profile-page">
       <header className="profile-hero">
         <div><span className="profile-eyebrow">TU ESPACIO</span><h1>Perfil y cuenta</h1><p>Tu identidad en Horizon, tus preferencias y la seguridad de tu cuenta.</p></div>
-        <div className="profile-avatar" aria-label="Foto de perfil">{avatarUrl ? <img src={avatarUrl} alt="Tu foto de perfil" /> : <span>{initials(displayName, user.email)}</span>}</div>
+        <ProfileAvatar characterId={profile.avatarCharacter} photoUrl={avatarUrl} className="profile-hero-portrait" alt="Tu imagen de perfil" />
       </header>
 
       {!isOnline && <div className="profile-feedback profile-feedback--error" role="status"><AlertCircle size={18} /><p>Estás sin conexión. Conservaremos tus cambios en pantalla para que puedas reintentar al volver.</p></div>}
@@ -114,19 +125,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="profile-grid">
         <section className="profile-card profile-card--identity" aria-labelledby="identity-title">
           <div className="profile-card-heading"><span className="profile-card-icon"><UserRound size={20} /></span><div><h2 id="identity-title">Tu perfil</h2><p>Visible únicamente dentro de tu cuenta.</p></div></div>
-          <div className="profile-avatar-controls">
-            <div className="profile-avatar profile-avatar--large">{avatarUrl ? <img src={avatarUrl} alt="Tu foto de perfil" /> : <span>{initials(displayName, user.email)}</span>}</div>
-            <div><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={pickAvatar} /><button type="button" className="btn-secondary" onClick={() => fileInput.current?.click()} disabled={Boolean(busy)}><Camera size={17} />{avatarUrl ? 'Cambiar foto' : 'Subir foto'}</button>{avatarUrl && <button type="button" className="profile-text-button profile-text-button--danger" onClick={() => void run('avatar', onAvatarRemove, 'Foto eliminada.')} disabled={Boolean(busy)}>Eliminar foto</button>}<small>JPG, PNG o WebP. Se recorta y protege antes de subir.</small></div>
-          </div>
+          <AvatarCharacterPicker selected={profile.avatarCharacter || (avatarUrl ? null : DEFAULT_AVATAR_CHARACTER)} pending={pendingCharacter} disabled={Boolean(busy) || !isOnline} onSelect={id => { setPendingCharacter(id); void run('avatar', () => onAvatarCharacterSelect(id), 'Tu personaje ya te acompaña.').finally(() => setPendingCharacter(null)); }} />
+          {avatarUrl && profile.avatarCharacter && <button type="button" className="profile-text-button" disabled={Boolean(busy) || !isOnline} onClick={() => void run('avatar', () => onAvatarCharacterSelect(null), 'Foto de perfil restaurada.')}>Volver a usar mi foto</button>}
+          <details className="profile-photo-option" open={Boolean(avatarUrl && !profile.avatarCharacter)}><summary>¿Prefieres tu propia foto?</summary>
+            <div className="profile-avatar-controls">
+              {avatarUrl && <ProfileAvatar photoUrl={avatarUrl} className="profile-identity-portrait" alt="Tu foto personal" />}
+              <div><input ref={fileInput} className="visually-hidden" type="file" aria-label="Subir foto de perfil" tabIndex={-1} accept="image/jpeg,image/png,image/webp" onChange={pickAvatar} /><button type="button" className="btn-secondary" onClick={() => fileInput.current?.click()} disabled={Boolean(busy)}><Camera size={17} />{avatarUrl ? 'Cambiar foto' : 'Subir foto'}</button>{avatarUrl && <button type="button" className="profile-text-button profile-text-button--danger" onClick={() => void run('avatar', onAvatarRemove, 'Foto eliminada.')} disabled={Boolean(busy)}>Eliminar foto</button>}<small>JPG, PNG o WebP. Se recorta y protege antes de subir.</small></div>
+            </div>
+          </details>
           <div className="profile-fields">
             <label><span>Nombre visible</span><input type="text" maxLength={60} autoComplete="name" value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder="¿Cómo quieres llamarte?" /><small>{displayName.length}/60</small></label>
             <label><span>Descripción breve <em>Opcional</em></span><textarea maxLength={160} rows={3} value={bio} onChange={event => setBio(event.target.value)} placeholder="Una frase que te recuerde hacia dónde vas." /><small>{bio.length}/160</small></label>
             <label><span>Inicio de tu ciclo de 365 días</span><input type="date" value={cycleStartDate} onChange={event => setCycleStartDate(event.target.value)} required /><small>Se sincroniza entre tus dispositivos.</small></label>
           </div>
-          <div className="profile-form-actions"><button type="button" className="btn-secondary" disabled={!dirty || Boolean(busy)} onClick={() => { setDisplayName(profile.displayName); setBio(profile.bio); setCycleStartDate(profile.cycleStartDate); }}>Descartar</button><button type="button" className="btn-primary" disabled={!dirty || !cycleStartDate || Boolean(busy)} onClick={() => void run('profile', () => onSave({ displayName, bio, cycleStartDate }), 'Cambios guardados.')}>{busy === 'profile' ? <><LoaderCircle className="profile-spinner" size={17} />Guardando…</> : 'Guardar cambios'}</button></div>
+          <div className="profile-form-actions"><button type="button" className="btn-secondary" disabled={!dirty || Boolean(busy)} onClick={() => { setDisplayName(profile.displayName); setBio(profile.bio); setCycleStartDate(profile.cycleStartDate); }}>Descartar</button><button type="button" className="btn-primary" disabled={!dirty || !cycleStartDate || Boolean(busy)} onClick={() => void run('profile', async () => { await onSave({ displayName, bio, cycleStartDate }); setDisplayName(displayName.trim()); setBio(bio.trim()); }, 'Cambios guardados.')}>{busy === 'profile' ? <><LoaderCircle className="profile-spinner" size={17} />Guardando…</> : 'Guardar cambios'}</button></div>
         </section>
 
-        <div className="profile-side-column">
+        <div className="profile-side-column" inert={!accountActionsEnabled}>
           <section className="profile-card" aria-labelledby="email-title">
             <div className="profile-card-heading"><span className="profile-card-icon"><Mail size={20} /></span><div><h2 id="email-title">Correo electrónico</h2><p>Se confirma en tu correo antes de cambiar.</p></div></div>
             <label className="profile-field"><span>Nuevo correo</span><input type="email" inputMode="email" autoCapitalize="none" value={newEmail} onChange={event => setNewEmail(event.target.value)} /></label>
@@ -162,7 +177,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </div>
 
-      <section className="profile-card profile-danger" aria-labelledby="delete-title">
+      <section className="profile-card profile-danger" aria-labelledby="delete-title" inert={!accountActionsEnabled}>
         <div className="profile-card-heading"><span className="profile-card-icon"><ShieldAlert size={20} /></span><div><h2 id="delete-title">Eliminar cuenta</h2><p>Elimina tu perfil, wrappers, entradas, hitos y avatar de forma permanente.</p></div></div>
         <div className="profile-danger-fields"><label><span>Contraseña actual</span><input type="password" autoComplete="current-password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} /></label><label><span>Escribe ELIMINAR</span><input type="text" autoComplete="off" value={deleteConfirmation} onChange={event => setDeleteConfirmation(event.target.value)} /></label></div>
         <button type="button" className="profile-delete-button" disabled={Boolean(busy) || !deletePassword || deleteConfirmation !== 'ELIMINAR'} onClick={() => void run('delete', async () => {

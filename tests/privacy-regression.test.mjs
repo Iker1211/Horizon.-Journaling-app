@@ -49,7 +49,9 @@ const fake = {
 globalThis.__horizonTestClient = fake;
 const clientUrl = `data:text/javascript,${encodeURIComponent('export const supabase = globalThis.__horizonTestClient; export const isSupabaseConfigured = true;')}`;
 const db = await import(await moduleUrl('../src/services/db.ts', { '../lib/supabase': clientUrl }));
-const profileService = await import(await moduleUrl('../src/services/profile.ts', { '../lib/supabase': clientUrl }));
+const charactersUrl = await moduleUrl('../src/utils/avatarCharacters.ts');
+const characters = await import(charactersUrl);
+const profileService = await import(await moduleUrl('../src/services/profile.ts', { '../lib/supabase': clientUrl, '../utils/avatarCharacters': charactersUrl }));
 const avatar = await import(await moduleUrl('../src/utils/avatar.ts'));
 const storage = await import(await moduleUrl('../src/utils/storage.ts'));
 const draftRecovery = await import(await moduleUrl('../src/utils/entryDraft.ts', { './storage': await moduleUrl('../src/utils/storage.ts') }));
@@ -301,4 +303,38 @@ test('avatar input rejects unexpected formats and oversized originals before dec
   assert.doesNotThrow(() => avatar.validateAvatarFile({ type: 'image/webp', size: 1024 }));
   assert.throws(() => avatar.validateAvatarFile({ type: 'image/svg+xml', size: 1024 }), /JPEG, PNG o WebP/);
   assert.throws(() => avatar.validateAvatarFile({ type: 'image/png', size: avatar.AVATAR_INPUT_MAX_BYTES + 1 }), /10 MB/);
+});
+
+test('character avatars use a closed catalog and preserve existing personal photos', () => {
+  assert.equal(characters.AVATAR_CHARACTERS.length, 5);
+  assert.equal(characters.resolveAvatarCharacter(null, null).id, 'otter');
+  assert.equal(characters.resolveAvatarCharacter(null, 'blob:personal-photo'), null);
+  assert.equal(characters.resolveAvatarCharacter('penguin', 'blob:personal-photo').id, 'penguin');
+  assert.equal(characters.isAvatarCharacterId('https://other.invalid/picture.svg'), false);
+  assert.equal(characters.isAvatarCharacterId('../another-user/avatar'), false);
+});
+
+test('choosing a character persists only the owner-scoped profile field', async () => {
+  fake.userId = 'account-a';
+  fake.rows.profiles = { id: 'account-a', avatar_character: 'bear', avatar_path: 'account-a/avatar.webp', avatar_version: 4 };
+  const updated = await profileService.selectAvatarCharacter('account-a', 'bear');
+  assert.equal(updated.avatarCharacter, 'bear');
+  assert.equal(updated.avatarPath, 'account-a/avatar.webp');
+  assert.deepEqual(fake.calls[0].payload, { avatar_character: 'bear' });
+  assert.deepEqual(fake.calls[0].filters, [['id', 'account-a']]);
+  await assert.rejects(profileService.selectAvatarCharacter('account-b', 'otter'), /sesión ha cambiado/);
+  await assert.rejects(profileService.selectAvatarCharacter('account-a', 'invalid'), /personajes disponibles/);
+  assert.equal(fake.calls.length, 1);
+});
+
+test('failed character updates reject and switching back to a photo clears the character choice', async () => {
+  fake.userId = 'account-a';
+  fake.error = new Error('Offline');
+  await assert.rejects(profileService.selectAvatarCharacter('account-a', 'yak'), /Offline/);
+  fake.error = null;
+  fake.rows.profiles = { id: 'account-a', avatar_character: null, avatar_path: 'account-a/avatar.webp' };
+  const updated = await profileService.selectAvatarCharacter('account-a', null);
+  assert.equal(updated.avatarCharacter, null);
+  assert.equal(updated.avatarPath, 'account-a/avatar.webp');
+  assert.deepEqual(fake.calls.at(-1).payload, { avatar_character: null });
 });

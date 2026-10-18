@@ -12,7 +12,10 @@ import { BlogEntryViewPage } from '../components/BlogEntryViewPage';
 import { ThemeModal } from '../components/ThemeModal';
 import { QuickActionSheet } from '../components/QuickActionSheet';
 import { getCountdownTo2027 } from '../utils/dates';
-import type { ActiveTab, BigTheme, BlogEntry } from '../types';
+import type { ActiveTab, BigTheme, BlogEntry, UserProfile } from '../types';
+import type { User } from '@supabase/supabase-js';
+import { ProfilePage } from '../components/ProfilePage';
+import { isAvatarCharacterId } from '../utils/avatarCharacters';
 import { canLeaveEntry } from '../utils/entryDraft';
 
 const OWNER = 'ux-synthetic-review';
@@ -28,10 +31,15 @@ const sampleEntries: BlogEntry[] = [
 const reviewParams = new URLSearchParams(window.location.search);
 const scenario = reviewParams.get('scenario') || 'sample';
 const reviewEntries = scenario === 'empty' ? [] : sampleEntries.map((entry, index) => scenario === 'long' && index === 0 ? { ...entry, content: `${entry.content.repeat(70)}\n\nhttps://example.invalid/${'long-link-'.repeat(40)}\n\n| Idea | Detalle |\n| --- | --- |\n| Paso | ${'contenido'.repeat(20)} |\n\n\`\`\`text\n${'código largo '.repeat(40)}\n\`\`\`` } : entry);
-const initialView = ['dashboard', 'blog', 'editor', 'entry'].includes(reviewParams.get('view') || '') ? reviewParams.get('view') as ActiveTab : 'dashboard';
+const initialView = ['dashboard', 'blog', 'editor', 'entry', 'profile'].includes(reviewParams.get('view') || '') ? reviewParams.get('view') as ActiveTab : 'dashboard';
+const demoUser = { id: OWNER, email: 'alex@example.invalid', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: stamp } as User;
 
 export function Preview() {
   const [tab, setTab] = useState<ActiveTab>(initialView);
+  const [demoProfile, setDemoProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('horizon:ux-synthetic-review:profile-character');
+    return { id: OWNER, displayName: 'Alex', bio: 'Un día a la vez.', cycleStartDate: '2026-10-17', avatarPath: null, avatarVersion: 0, avatarCharacter: isAvatarCharacterId(saved) ? saved : 'otter', createdAt: stamp, updatedAt: stamp };
+  });
   const [themes, setThemes] = useState(scenario === 'empty' ? [] : sampleThemes);
   const [entries, setEntries] = useState(reviewEntries);
   const [selected, setSelected] = useState<string | null>(initialView === 'entry' ? sampleEntries[0].id : null);
@@ -103,7 +111,7 @@ export function Preview() {
       <p>Sin conexión a Supabase. Las entradas de muestra se reinician al recargar; los borradores de revisión usan un propietario ficticio separado.</p>
     </div></details>
     <div className="app-shell">
-      <Navbar activeTab={tab} setActiveTab={navigate} onOpenQuickEntry={() => openEditor()} userEmail="alex@example.invalid" userDisplayName="Alex" onOpenAuth={() => navigate('profile')} />
+      <Navbar activeTab={tab} setActiveTab={navigate} onOpenQuickEntry={() => openEditor()} userEmail="alex@example.invalid" userDisplayName={demoProfile.displayName} userAvatarCharacter={demoProfile.avatarCharacter} onOpenAuth={() => navigate('profile')} />
       <main className="app-main-layout" id="main-content">
         {tab === 'entry' && confirmed === selected && <p className="entry-saved-confirmation" role="status">Entrada guardada en tu cuenta.<button type="button" aria-label="Cerrar confirmación" onClick={() => setConfirmed(null)}>×</button></p>}
         {tab === 'dashboard' && <Dashboard userId={OWNER} themes={themes} blogEntries={entries} countdown={getCountdownTo2027()} setActiveTab={navigate} onSelectBlogEntry={openReader} onSelectThemeFilter={id => { setWrapper(id); navigate('blog'); }} onOpenQuickEntry={() => openEditor()} onCreateWrapper={() => { continueWriting.current = !themes.length; setThemeModal(true); }} onWriteForTheme={id => openEditor(undefined, id)} onOpenWrapperStudio={id => { setWrapper(id); navigate('blog'); }} onResumeDraft={id => openEditor(entries.find(e => e.id === id))} />}
@@ -111,7 +119,10 @@ export function Preview() {
           {(tab === 'blog' || tab === 'themes') && <BlogJournal userId={OWNER} entries={entries} themes={themes} selectedThemeFilter={wrapper} onSelectThemeFilter={setWrapper} searchQuery={query} onSearchQueryChange={setQuery} onOpenCreateEntry={() => openEditor(undefined, wrapper || undefined)} onEditEntry={entry => openEditor(entry)} onOpenReader={openReader} onDeleteEntry={id => setEntries(all => all.filter(e => e.id !== id))} />}
           {tab === 'editor' && <BlogEditorPage key={revision} userId={OWNER} themes={themes} initialThemeId={wrapper} entryToEdit={editing} onBack={() => navigate('blog')} onSave={async entry => { await perform(); setEntries(all => [entry, ...all.filter(e => e.id !== entry.id)]); }} onSaved={entry => { setConfirmed(entry.id); openReader(entry); }} />}
           {tab === 'entry' && active && <BlogEntryViewPage key={active.id} entry={active} themes={themes} allEntries={entries} onBack={() => navigate('blog')} onEdit={entry => openEditor(entry)} onSelectEntry={setSelected} onDelete={async id => { await perform(); setEntries(all => all.filter(e => e.id !== id)); }} />}
-          {tab === 'profile' && <section className="empty-state"><h1>Perfil · revisión de navegación</h1><p>Las acciones sensibles de cuenta se revisan en el código. Este prototipo no inicia sesiones ni modifica cuentas.</p><button className="btn-secondary" onClick={() => setTab('dashboard')}>Volver al inicio</button></section>}
+          {tab === 'profile' && <ProfilePage user={demoUser} profile={demoProfile} avatarUrl={null} loading={false} error={null} onRetry={() => {}} accountActionsEnabled={false}
+            onSave={async patch => { await perform(); setDemoProfile(p => ({ ...p, ...patch, displayName: patch.displayName?.trim() ?? p.displayName, bio: patch.bio?.trim() ?? p.bio, updatedAt: new Date().toISOString() })); }}
+            onAvatarCharacterSelect={async avatarCharacter => { await perform(); localStorage.setItem('horizon:ux-synthetic-review:profile-character', avatarCharacter || 'otter'); setDemoProfile(p => ({ ...p, avatarCharacter, updatedAt: new Date().toISOString() })); }}
+            onAvatarSave={async () => { throw new Error('Esta vista de revisión no envía fotos personales.'); }} onAvatarRemove={async () => {}} onSignOut={async () => {}} />}
           {tab === 'calendar' && <section className="empty-state"><h1>Calendario</h1><p>La recomposición se concentra en escribir, retomar y encontrar entradas.</p><button className="btn-secondary" onClick={() => setTab('blog')}>Ver bitácora</button></section>}
         </div>}
       </main>

@@ -16,7 +16,7 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 
 UPDATE public.profiles
-SET display_name = 'Cuenta uno', bio = 'Privado', cycle_start_date = DATE '2026-10-17'
+SET display_name = 'Cuenta uno', bio = 'Privado', cycle_start_date = DATE '2026-10-17', avatar_character = 'penguin'
 WHERE id = '11111111-1111-4111-8111-111111111111';
 
 DO $$
@@ -31,11 +31,20 @@ END;
 $$;
 
 UPDATE public.profiles SET display_name = 'Ataque' WHERE id = '22222222-2222-4222-8222-222222222222';
+UPDATE public.profiles SET avatar_character = 'bear' WHERE id = '22222222-2222-4222-8222-222222222222';
 DO $$
 BEGIN
   IF FOUND THEN
     RAISE EXCEPTION 'Cross-user profile update was allowed';
   END IF;
+  IF (SELECT avatar_character FROM public.profiles WHERE id = '11111111-1111-4111-8111-111111111111') <> 'penguin' THEN
+    RAISE EXCEPTION 'The owner character choice was not saved';
+  END IF;
+  BEGIN
+    UPDATE public.profiles SET avatar_character = 'not-an-animal' WHERE id = '11111111-1111-4111-8111-111111111111';
+    RAISE EXCEPTION 'An invalid character was accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
 END;
 $$;
 
@@ -60,6 +69,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM storage.objects WHERE name = '11111111-1111-4111-8111-111111111111/avatar.webp') THEN
     RAISE EXCEPTION 'Cross-user avatar read was allowed';
   END IF;
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE id = '11111111-1111-4111-8111-111111111111') THEN
+    RAISE EXCEPTION 'A second user can read the first user character';
+  END IF;
 END;
 $$;
 
@@ -69,6 +81,9 @@ DO $$
 BEGIN
   IF (SELECT display_name FROM public.profiles WHERE id = '22222222-2222-4222-8222-222222222222') = 'Ataque' THEN
     RAISE EXCEPTION 'Cross-user profile update was allowed';
+  END IF;
+  IF (SELECT avatar_character FROM public.profiles WHERE id = '22222222-2222-4222-8222-222222222222') IS NOT NULL THEN
+    RAISE EXCEPTION 'Cross-user character update was allowed';
   END IF;
 END;
 $$;

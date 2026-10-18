@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { UserProfile } from '../types';
+import type { AvatarCharacterId, UserProfile } from '../types';
+import { isAvatarCharacterId } from '../utils/avatarCharacters';
 
 const AVATAR_BUCKET = 'avatars';
 
@@ -18,6 +19,7 @@ function mapProfile(row: Record<string, unknown>): UserProfile {
     bio: typeof row.bio === 'string' ? row.bio : '',
     avatarPath: typeof row.avatar_path === 'string' ? row.avatar_path : null,
     avatarVersion: typeof row.avatar_version === 'number' ? row.avatar_version : Number(row.avatar_version || 0),
+    avatarCharacter: isAvatarCharacterId(row.avatar_character) ? row.avatar_character : null,
     cycleStartDate: typeof row.cycle_start_date === 'string' ? row.cycle_start_date : '',
     createdAt: String(row.created_at || ''),
     updatedAt: String(row.updated_at || ''),
@@ -91,7 +93,17 @@ export async function uploadAvatar(userId: string, blob: Blob, currentVersion: n
   const { data, error } = await client.from('profiles').update({
     avatar_path: path,
     avatar_version: currentVersion + 1,
+    avatar_character: null,
   }).eq('id', userId).select('*').single();
+  if (error) throw error;
+  return mapProfile(data);
+}
+
+export async function selectAvatarCharacter(userId: string, characterId: AvatarCharacterId | null): Promise<UserProfile> {
+  if (characterId !== null && !isAvatarCharacterId(characterId)) throw new Error('Elige uno de los personajes disponibles.');
+  const client = await profileClient(userId);
+  // Keep a previously uploaded photo so switching back does not require uploading it again.
+  const { data, error } = await client.from('profiles').update({ avatar_character: characterId }).eq('id', userId).select('*').single();
   if (error) throw error;
   return mapProfile(data);
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { ArrowRight, BookOpen, CalendarDays, Layers, LockKeyhole } from "lucide-react";
-import { ActiveTab, BigTheme, BlogEntry, UserProfile } from "./types";
+import { ActiveTab, AvatarCharacterId, BigTheme, BlogEntry, UserProfile } from "./types";
 import { getCountdownTo2027, CountdownTime } from "./utils/dates";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import {
@@ -29,7 +29,7 @@ import { WrapperProvider } from "./context/WrapperContext";
 import { useAndroidBackHandler } from "./hooks/useAndroidBackHandler";
 import { useAuthCallback } from "./hooks/useAuthCallback";
 import { ProfilePage } from "./components/ProfilePage";
-import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, updateProfile, uploadAvatar } from "./services/profile";
+import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, selectAvatarCharacter, updateProfile, uploadAvatar } from "./services/profile";
 import { getAppStartDate, saveAppStartDate } from "./utils/quarters";
 import { canLeaveEntry } from './utils/entryDraft';
 
@@ -512,6 +512,14 @@ export const App: React.FC = () => {
     replaceAvatarUrl(null);
   };
 
+  const handleAvatarCharacterSelect = async (characterId: AvatarCharacterId | null) => {
+    const { userId, epoch } = requireCurrentAccount();
+    const updated = await selectAvatarCharacter(userId, characterId);
+    if (!isCurrentAccount(userId, epoch)) throw new Error('Tu sesión ha cambiado.');
+    setProfile(updated);
+    setProfileOwnerId(userId);
+  };
+
   // Find currently viewed entry
   const activeViewingEntry = viewingEntryId
     ? blogEntries.find(b => b.id === viewingEntryId) || null
@@ -611,6 +619,7 @@ export const App: React.FC = () => {
           userEmail={user?.email || null}
           userDisplayName={profileOwnerId === user.id ? profile?.displayName || null : null}
           userAvatarUrl={profileOwnerId === user.id ? avatarUrl : null}
+          userAvatarCharacter={profileOwnerId === user.id ? profile?.avatarCharacter : null}
           onOpenAuth={() => navigateToTab('profile')}
         />
 
@@ -727,7 +736,7 @@ export const App: React.FC = () => {
 
         {activeTab === "profile" && (
           <ProfilePage
-            key={`${user.id}:${profile?.updatedAt || 'loading'}:${profile?.avatarVersion || 0}`}
+            key={user.id}
             user={user}
             profile={profileOwnerId === user.id ? profile : null}
             avatarUrl={profileOwnerId === user.id ? avatarUrl : null}
@@ -737,6 +746,7 @@ export const App: React.FC = () => {
             onSave={handleProfileSave}
             onAvatarSave={handleAvatarSave}
             onAvatarRemove={handleAvatarRemove}
+            onAvatarCharacterSelect={handleAvatarCharacterSelect}
             onSignOut={handleSignOut}
             onDirtyChange={setIsProfileDirty}
           />

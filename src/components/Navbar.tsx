@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActiveTab } from '../types';
-import { LayoutDashboard, Calendar, Layers, BookOpen, Plus, UserRound } from 'lucide-react';
+import { ActiveTab, AvatarCharacterId } from '../types';
+import { LayoutDashboard, Calendar, Layers, BookOpen, Plus } from 'lucide-react';
+import { ProfileAvatar } from './ProfileAvatar';
 
 const MOTIVATIONAL_MESSAGES = [
   'Todo empieza contigo.',
@@ -24,10 +25,11 @@ interface NavbarProps {
   userEmail: string | null;
   userDisplayName?: string | null;
   userAvatarUrl?: string | null;
+  userAvatarCharacter?: AvatarCharacterId | null;
   onOpenAuth: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, userDisplayName, userAvatarUrl, onOpenAuth }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, userDisplayName, userAvatarUrl, userAvatarCharacter, onOpenAuth }) => {
   const [messageIndex, setMessageIndex] = useState(initialMessageIndex);
 
   useEffect(() => {
@@ -63,9 +65,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQ
         <button type="button" className="btn-primary nav-write-button" onClick={onOpenQuickEntry}>
           <Plus size={17} aria-hidden="true" /> Escribir
         </button>
-        <button type="button" className={`nav-account-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} aria-label={userEmail ? `${userDisplayName?.trim() || 'Mi perfil'}, abrir mi perfil` : 'Entrar, iniciar sesión'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
-          <span className="nav-account-avatar" aria-hidden="true">{userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : <UserRound size={17} />}</span>
-          <span className="nav-account-label">{userDisplayName?.trim() || (userEmail ? 'Mi perfil' : 'Entrar')}</span>
+        <button type="button" className={`nav-account-button nav-character-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} aria-label={userEmail ? 'Abrir mi perfil' : 'Iniciar sesión'} title={userDisplayName?.trim() ? `Perfil · ${userDisplayName.trim()}` : 'Mi perfil'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
+          <ProfileAvatar characterId={userAvatarCharacter} photoUrl={userAvatarUrl} />
         </button>
       </div>
     </header>

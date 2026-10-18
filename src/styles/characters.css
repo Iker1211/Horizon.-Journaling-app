@@ -1,0 +1,55 @@
+/* The figurine itself is the avatar: no disc, frame, capsule or backing plate. */
+.avatar-figurine { display: block; object-fit: contain; overflow: visible; user-select: none; filter: drop-shadow(0 4px 3px rgb(33 45 36 / 14%)); --character-tilt: -5deg; --character-scale: 1; --character-lift: 0px; transform: translateY(var(--character-lift)) rotate(var(--character-tilt)) scale(var(--character-scale)); transform-origin: 50% 75%; }
+.avatar-figurine[data-character=otter] { --character-tilt: -7deg; --character-scale: 1.06; }
+.avatar-figurine[data-character=yak] { --character-tilt: 6deg; --character-scale: 1.14; --character-lift: 5px; }
+.avatar-figurine[data-character=pterodactyl] { --character-tilt: -5deg; --character-scale: .98; }
+.avatar-figurine[data-character=bear] { --character-tilt: -4deg; --character-scale: 1.1; }
+.avatar-figurine[data-character=penguin] { --character-tilt: 7deg; }
+.avatar-personal-photo { display: block; border-radius: 50%; object-fit: cover; }
+.top-nav .nav-character-button { position: relative; align-self: center; flex: 0 0 80px; width: 80px; min-width: 80px; height: 64px; padding: 0; background: transparent; border: 0; border-radius: 10px; box-shadow: none; isolation: isolate; }
+.top-nav .nav-character-button.active { background: transparent; box-shadow: none; border: 0; }
+.nav-character-button .avatar-figurine { position: absolute; width: 84px; height: 84px; max-width: none; bottom: -18px; right: -2px; transition: transform .2s ease, filter .2s ease; pointer-events: none; }
+.nav-character-button .avatar-personal-photo { width: 48px; height: 48px; }
+.nav-character-button:focus-visible { outline: 3px solid #328075; outline-offset: 4px; }
+.nav-character-button[aria-current=page] .avatar-figurine { filter: drop-shadow(0 5px 3px rgb(33 45 36 / 24%)); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .nav-character-button:hover .avatar-figurine { transform: translateY(calc(var(--character-lift) - 4px)) rotate(calc(var(--character-tilt) + 3deg)) scale(var(--character-scale)); }
+  .character-option:hover .avatar-figurine { transform: translateY(-4px) rotate(calc(var(--character-tilt) - 3deg)) scale(var(--character-scale)); }
+}
+.profile-hero-portrait { width: 112px; height: 112px; flex: 0 0 auto; }
+.profile-identity-portrait { width: 112px; height: 112px; flex: 0 0 auto; }
+.profile-avatar-controls { background: transparent; padding: 0; border-radius: 0; }
+.profile-photo-option { margin: 10px 0 24px; border-block: 1px solid var(--color-hairline); }
+.profile-photo-option summary { min-height: 52px; padding: 16px 0; color: var(--color-body); font-size: 13px; cursor: pointer; }
+.profile-photo-option .profile-avatar-controls { margin: 12px 0 20px; }
+.character-picker { min-width: 0; border: 0; padding: 0; margin: 24px 0 28px; }
+.character-picker legend { color: var(--color-ink); font-family: var(--font-display); font-size: 19px; font-weight: 700; letter-spacing: -.4px; }
+.character-picker > p { margin: 8px 0 20px; font-size: 13px; line-height: 1.6; color: var(--color-muted); }
+.character-picker-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 12px; }
+.character-option { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; cursor: pointer; color: var(--color-body); text-align: center; }
+.character-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; z-index: 1; cursor: pointer; }
+.character-option-art { display: flex; justify-content: center; align-items: end; width: 100%; height: 124px; position: relative; padding-bottom: 6px; }
+.character-option .avatar-figurine { width: 116px; height: 116px; max-width: 100%; transition: transform .2s ease; }
+.character-option-name { display: inline-flex; align-items: center; min-height: 32px; padding: 3px 2px; font-size: 13px; font-weight: 650; border-bottom: 2px solid transparent; }
+.character-option-note { color: var(--color-muted); font-size: 11px; line-height: 1.5; max-width: 17ch; margin-top: 4px; }
+.character-option.is-selected .character-option-name { color: var(--color-brand-teal); border-bottom-color: currentColor; }
+.character-choice-mark { position: absolute; right: 6px; bottom: 4px; color: var(--color-brand-teal); }
+.character-option:has(input:focus-visible) { outline: 3px solid #328075; outline-offset: 4px; border-radius: 8px; }
+.character-picker:disabled .character-option { cursor: wait; }
+.character-picker:disabled input { cursor: wait; }
+.character-option.is-pending { opacity: .65; }
+.character-saving { color: var(--color-brand-teal); }
+@media (max-width: 860px) {
+  .top-nav .nav-character-button { flex-basis: 64px; width: 64px; min-width: 64px; height: 56px; }
+  .nav-character-button .avatar-figurine { width: 74px; height: 74px; right: -5px; bottom: -17px; }
+  .profile-hero-portrait { width: 80px; height: 80px; }
+}
+@media (max-width: 480px) {
+  .profile-hero { gap: 10px; }
+  .profile-hero-portrait { display: none; }
+  .profile-hero h1 { font-size: 28px; line-height: 1.1; }
+  .profile-identity-portrait { width: 96px; height: 96px; }
+  .profile-avatar-controls { align-items: center; gap: 14px; }
+  .character-picker-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .avatar-figurine { transition: none !important; } }

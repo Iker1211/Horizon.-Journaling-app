@@ -39,12 +39,15 @@ export interface BlogDraft {
   savedAt: string;
 }
 
+export type AvatarCharacterId = 'otter' | 'yak' | 'pterodactyl' | 'bear' | 'penguin';
+
 export interface UserProfile {
   id: string;
   displayName: string;
   bio: string;
   avatarPath: string | null;
   avatarVersion: number;
+  avatarCharacter: AvatarCharacterId | null;
   cycleStartDate: string;
   createdAt: string;
   updatedAt: string;
