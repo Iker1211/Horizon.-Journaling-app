@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { ArrowRight, BookOpen, CalendarDays, Layers, LockKeyhole } from "lucide-react";
-import { ActiveTab, BigTheme, BlogEntry } from "./types";
+import { ActiveTab, BigTheme, BlogEntry, UserProfile } from "./types";
 import { getCountdownTo2027, CountdownTime } from "./utils/dates";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import {
@@ -28,6 +28,9 @@ import { WrapperStudioPage } from "./components/WrapperStudioPage";
 import { WrapperProvider } from "./context/WrapperContext";
 import { useAndroidBackHandler } from "./hooks/useAndroidBackHandler";
 import { useAuthCallback } from "./hooks/useAuthCallback";
+import { ProfilePage } from "./components/ProfilePage";
+import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, updateProfile, uploadAvatar } from "./services/profile";
+import { getAppStartDate, saveAppStartDate } from "./utils/quarters";
 
 export const App: React.FC = () => {
   // Navigation & Route state
@@ -47,6 +50,20 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("signin");
   const [authModalError, setAuthModalError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileOwnerId, setProfileOwnerId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const avatarUrlRef = useRef<string | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileReloadVersion, setProfileReloadVersion] = useState(0);
+  const [isProfileDirty, setIsProfileDirty] = useState(false);
+
+  const replaceAvatarUrl = useCallback((next: string | null) => {
+    if (avatarUrlRef.current) URL.revokeObjectURL(avatarUrlRef.current);
+    avatarUrlRef.current = next;
+    setAvatarUrl(next);
+  }, []);
 
   const handleRecoveryCallback = useCallback(() => {
     setAuthError(null);
@@ -106,6 +123,7 @@ export const App: React.FC = () => {
     },
     activeTab,
     setActiveTab,
+    hasUnsavedChanges: activeTab === 'profile' && isProfileDirty,
   });
 
   // Real-time Countdown Timer
@@ -130,6 +148,8 @@ export const App: React.FC = () => {
         setActiveTab("themes");
       } else if (hash === "blog") {
         setActiveTab("blog");
+      } else if (hash === "profile") {
+        setActiveTab("profile");
       } else if (hash.startsWith("write") || hash.startsWith("editor")) {
         setActiveTab("editor");
         const searchPart = hash.includes("?") ? hash.split("?")[1] : "";
@@ -174,6 +194,11 @@ export const App: React.FC = () => {
         setThemeToEdit(null);
         setIsThemeModalOpen(false);
         setIsQuickActionSheetOpen(false);
+        setProfile(null);
+        setProfileOwnerId(null);
+        setProfileError(null);
+        setIsProfileDirty(false);
+        replaceAvatarUrl(null);
         // Account changes must not carry another account's private route into the new session.
         if (previousId) {
           setEditorEntryId(null);
@@ -221,7 +246,44 @@ export const App: React.FC = () => {
       disposed = true;
       subscription.unsubscribe();
     };
-  }, [handleRecoveryCallback]);
+  }, [handleRecoveryCallback, replaceAvatarUrl]);
+
+  useEffect(() => () => {
+    if (avatarUrlRef.current) URL.revokeObjectURL(avatarUrlRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+    const epoch = sessionEpoch.current;
+    let disposed = false;
+    setIsProfileLoading(true);
+    setProfileError(null);
+    getOrCreateProfile(userId, getAppStartDate(userId)).then(async loadedProfile => {
+      if (disposed || epoch !== sessionEpoch.current || userIdRef.current !== userId) return;
+      setProfile(loadedProfile);
+      setProfileOwnerId(userId);
+      saveAppStartDate(loadedProfile.cycleStartDate, userId);
+      try {
+        const loadedAvatar = await loadAvatarObjectUrl(userId, loadedProfile.avatarPath);
+        if (disposed || epoch !== sessionEpoch.current || userIdRef.current !== userId) {
+          if (loadedAvatar) URL.revokeObjectURL(loadedAvatar);
+          return;
+        }
+        replaceAvatarUrl(loadedAvatar);
+      } catch {
+        if (!disposed && epoch === sessionEpoch.current && userIdRef.current === userId) replaceAvatarUrl(null);
+      }
+    }).catch(() => {
+      if (disposed || epoch !== sessionEpoch.current || userIdRef.current !== userId) return;
+      setProfile(null);
+      setProfileOwnerId(userId);
+      setProfileError('No pudimos cargar el perfil. Comprueba tu conexión y vuelve a intentarlo.');
+    }).finally(() => {
+      if (!disposed && epoch === sessionEpoch.current && userIdRef.current === userId) setIsProfileLoading(false);
+    });
+    return () => { disposed = true; };
+  }, [user?.id, profileReloadVersion, replaceAvatarUrl]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -248,8 +310,9 @@ export const App: React.FC = () => {
 
   // --- Route Handlers ---
   const navigateToTab = (tab: ActiveTab) => {
+    if (activeTab === 'profile' && tab !== 'profile' && isProfileDirty && !window.confirm('Tienes cambios sin guardar. ¿Quieres salir sin guardarlos?')) return;
     setActiveTab(tab);
-    if (tab === "dashboard" || tab === "calendar" || tab === "themes" || tab === "blog") {
+    if (tab === "dashboard" || tab === "calendar" || tab === "themes" || tab === "blog" || tab === "profile") {
       window.location.hash = `#/${tab}`;
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -368,12 +431,47 @@ export const App: React.FC = () => {
       setIsThemeModalOpen(false);
       setIsQuickActionSheetOpen(false);
       setOperationError(null);
+      setProfile(null);
+      setProfileOwnerId(null);
+      setProfileError(null);
+      replaceAvatarUrl(null);
     } catch {
       setOperationError("No pudimos cerrar la sesión. Vuelve a intentarlo.");
       throw new Error("No pudimos cerrar la sesión. Vuelve a intentarlo.");
     } finally {
       setIsSigningOut(false);
     }
+  };
+
+  const handleProfileSave = async (patch: Partial<Pick<UserProfile, 'displayName' | 'bio' | 'cycleStartDate'>>) => {
+    const { userId, epoch } = requireCurrentAccount();
+    const updated = await updateProfile(userId, patch);
+    if (!isCurrentAccount(userId, epoch)) throw new Error('Tu sesión ha cambiado.');
+    setProfile(updated);
+    setProfileOwnerId(userId);
+    setIsProfileDirty(false);
+    if (updated.cycleStartDate) saveAppStartDate(updated.cycleStartDate, userId);
+  };
+
+  const handleAvatarSave = async (blob: Blob) => {
+    const { userId, epoch } = requireCurrentAccount();
+    const updated = await uploadAvatar(userId, blob, profile?.avatarVersion ?? 0);
+    const nextUrl = await loadAvatarObjectUrl(userId, updated.avatarPath);
+    if (!isCurrentAccount(userId, epoch)) {
+      if (nextUrl) URL.revokeObjectURL(nextUrl);
+      throw new Error('Tu sesión ha cambiado.');
+    }
+    setProfile(updated);
+    setProfileOwnerId(userId);
+    replaceAvatarUrl(nextUrl);
+  };
+
+  const handleAvatarRemove = async () => {
+    const { userId, epoch } = requireCurrentAccount();
+    const updated = await removeAvatar(userId);
+    if (!isCurrentAccount(userId, epoch)) throw new Error('Tu sesión ha cambiado.');
+    setProfile(updated);
+    replaceAvatarUrl(null);
   };
 
   // Find currently viewed entry
@@ -471,8 +569,9 @@ export const App: React.FC = () => {
           setActiveTab={navigateToTab}
           onOpenQuickEntry={() => handleOpenEditor()}
           userEmail={user?.email || null}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onSignOut={() => { void handleSignOut().catch(() => {}); }}
+          userDisplayName={profileOwnerId === user.id ? profile?.displayName || null : null}
+          userAvatarUrl={profileOwnerId === user.id ? avatarUrl : null}
+          onOpenAuth={() => navigateToTab('profile')}
         />
 
         <main className="app-main-layout" style={{ flex: 1 }}>
@@ -480,6 +579,7 @@ export const App: React.FC = () => {
           {activeTab === "dashboard" && (
             <Dashboard
               userId={user.id}
+              cycleStartDate={profileOwnerId === user.id ? profile?.cycleStartDate : undefined}
               themes={themes}
               blogEntries={blogEntries}
               countdown={countdown}
@@ -501,6 +601,8 @@ export const App: React.FC = () => {
             {activeTab === "calendar" && (
           <CalendarCountdown
             userId={user.id}
+            cycleStartDate={profileOwnerId === user.id ? profile?.cycleStartDate : undefined}
+            onCycleStartDateChange={async cycleStartDate => handleProfileSave({ cycleStartDate })}
             countdown={countdown}
             themes={themes}
             blogEntries={blogEntries}
@@ -576,6 +678,23 @@ export const App: React.FC = () => {
             onDeleteEntry={handleDeleteBlogEntry}
             onOpenReader={entry => handleOpenEntry(entry.id)}
             onOpenWrapperStudio={handleOpenWrapperStudio}
+          />
+        )}
+
+        {activeTab === "profile" && (
+          <ProfilePage
+            key={`${user.id}:${profile?.updatedAt || 'loading'}:${profile?.avatarVersion || 0}`}
+            user={user}
+            profile={profileOwnerId === user.id ? profile : null}
+            avatarUrl={profileOwnerId === user.id ? avatarUrl : null}
+            loading={isProfileLoading}
+            error={profileError}
+            onRetry={() => setProfileReloadVersion(version => version + 1)}
+            onSave={handleProfileSave}
+            onAvatarSave={handleAvatarSave}
+            onAvatarRemove={handleAvatarRemove}
+            onSignOut={handleSignOut}
+            onDirtyChange={setIsProfileDirty}
           />
         )}
 

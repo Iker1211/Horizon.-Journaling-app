@@ -44,7 +44,7 @@ function describeAuthError(error: unknown) {
     return "Ya existe una cuenta con este correo. Inicia sesión para continuar.";
   }
   if (code === "weak_password" || /password.*(weak|characters|length)/i.test(message)) {
-    return "Usa una contraseña más segura, con al menos 6 caracteres, letras y números.";
+    return "Usa una contraseña más segura, con al menos 8 caracteres, letras y números.";
   }
   if (code === "same_password") return "Elige una contraseña diferente a la actual.";
   if (code === "reauthentication_needed") return "Vuelve a iniciar sesión antes de cambiar tu contraseña.";
@@ -156,8 +156,8 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       setError("Ingresa un correo electrónico válido.");
       return;
     }
-    if ((mode === "signup" || mode === "update-password") && password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+    if ((mode === "signup" || mode === "update-password") && password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
     if (mode === "update-password" && password !== confirmPassword) {
@@ -234,7 +234,7 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     signup: "Crea una cuenta para organizar tus proyectos en Horizon.",
     otp: codeSent ? `Escribe aquí el código de seis dígitos enviado a ${email}. No necesitas abrir ningún enlace.` : "Te enviaremos un código para entrar sin contraseña.",
     forgot: "Verifica tu correo con un código y elige una nueva contraseña.",
-    "update-password": "Usa al menos 6 caracteres. Combina letras y números para mayor seguridad.",
+    "update-password": "Usa al menos 8 caracteres. Combina letras y números para mayor seguridad.",
   }[mode];
   const submitLabel = {
     signin: "Iniciar sesión",
@@ -280,8 +280,8 @@ const AuthModalContent: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             <form className="auth-form" onSubmit={handleSubmit} aria-busy={loading}>
               <fieldset disabled={loading}>
                 {mode !== "update-password" && !(mode === "otp" && codeSent) && <label className="auth-field" htmlFor="auth-email"><span>Correo electrónico</span><input id="auth-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="tu@correo.com" required value={email} onChange={event => setEmail(event.target.value)} /></label>}
-                {(mode === "signin" || mode === "signup" || mode === "update-password") && <label className="auth-field" htmlFor="auth-password"><span>{mode === "update-password" ? "Nueva contraseña" : "Contraseña"}</span><div className="auth-password-input"><input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder={mode === "signin" ? "Tu contraseña" : "Al menos 6 caracteres"} required minLength={mode === "signin" ? undefined : 6} value={password} onChange={event => setPassword(event.target.value)} /><button type="button" className="auth-icon-button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></label>}
-                {mode === "update-password" && <label className="auth-field" htmlFor="auth-confirm"><span>Repite la nueva contraseña</span><input id="auth-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Escríbela una vez más" required minLength={6} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>}
+                {(mode === "signin" || mode === "signup" || mode === "update-password") && <label className="auth-field" htmlFor="auth-password"><span>{mode === "update-password" ? "Nueva contraseña" : "Contraseña"}</span><div className="auth-password-input"><input id="auth-password" type={showPassword ? "text" : "password"} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder={mode === "signin" ? "Tu contraseña" : "Al menos 8 caracteres"} required minLength={mode === "signin" ? undefined : 8} value={password} onChange={event => setPassword(event.target.value)} /><button type="button" className="auth-icon-button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></label>}
+                {mode === "update-password" && <label className="auth-field" htmlFor="auth-confirm"><span>Repite la nueva contraseña</span><input id="auth-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Escríbela una vez más" required minLength={8} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>}
                 {mode === "signin" && <button type="button" className="auth-link auth-forgot" onClick={() => navigate("forgot")}>¿Olvidaste tu contraseña?</button>}
                 {mode === "otp" && codeSent && <label className="auth-field" htmlFor="auth-code"><span>Código de verificación</span><input ref={codeInput} className="auth-code-input" id="auth-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} placeholder="· · · · · ·" required value={code} onChange={event => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} /><small>Puedes copiarlo desde el correo y pegarlo aquí.</small></label>}
                 <button type="submit" className="auth-primary">{loading ? <><LoaderCircle size={18} className="auth-spinner" />Un momento…</> : <>{submitLabel}<ArrowRight size={18} /></>}</button>

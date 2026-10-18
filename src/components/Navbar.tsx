@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { LayoutDashboard, Calendar, Layers, BookOpen, Plus, UserRound } from 'lucide-react';
+import { LayoutDashboard, Calendar, Layers, BookOpen, Plus } from 'lucide-react';
 import { FireGoatLogo } from './FireGoatLogo';
 
 interface NavbarProps {
@@ -8,11 +8,12 @@ interface NavbarProps {
   setActiveTab: (tab: ActiveTab) => void;
   onOpenQuickEntry: () => void;
   userEmail: string | null;
+  userDisplayName?: string | null;
+  userAvatarUrl?: string | null;
   onOpenAuth: () => void;
-  onSignOut: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, onOpenAuth }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, userDisplayName, userAvatarUrl, onOpenAuth }) => {
   const tabs = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, active: activeTab === 'dashboard' },
     { id: 'themes', label: 'Wrappers', icon: Layers, active: activeTab === 'themes' || activeTab === 'wrapper-studio' },
@@ -37,9 +38,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQ
         <button type="button" className="btn-primary nav-write-button" onClick={onOpenQuickEntry}>
           <Plus size={17} aria-hidden="true" /> Escribir
         </button>
-        <button type="button" className="nav-account-button" onClick={onOpenAuth} aria-label={userEmail ? 'Abrir mi cuenta' : 'Iniciar sesión'}>
-          <UserRound size={19} aria-hidden="true" />
-          <span>{userEmail ? 'Mi cuenta' : 'Entrar'}</span>
+        <button type="button" className={`nav-account-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} aria-label={userEmail ? 'Abrir mi perfil' : 'Iniciar sesión'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
+          <span className="nav-account-avatar" aria-hidden="true">{userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : (userDisplayName || userEmail || 'H').trim()[0]?.toUpperCase()}</span>
+          <span>{userDisplayName?.trim() || (userEmail ? 'Mi perfil' : 'Entrar')}</span>
         </button>
       </div>
     </header>

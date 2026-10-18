@@ -7,6 +7,7 @@ import { ArrowRight, BookOpen, CalendarDays, Layers, PenLine, Plus, Target } fro
 
 interface DashboardProps {
   userId: string;
+  cycleStartDate?: string;
   themes: BigTheme[];
   blogEntries: BlogEntry[];
   countdown: CountdownTime;
@@ -21,6 +22,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({
   userId,
+  cycleStartDate,
   themes,
   blogEntries,
   countdown,
@@ -32,7 +34,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenQuickEntry,
   onCreateWrapper,
 }) => {
-  const cycle = calculate365Cycle(getAppStartDate(userId));
+  const cycle = calculate365Cycle(cycleStartDate || getAppStartDate(userId));
   const hasWrappers = themes.length > 0;
   const goalCount = themes.reduce((total, theme) => total + theme.targetGoals2027.length, 0);
   const recentEntries = [...blogEntries].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 3);

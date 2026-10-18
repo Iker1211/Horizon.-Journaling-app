@@ -30,11 +30,15 @@ const fake = {
     const call = { table, operation: null, filters: [], payload: null };
     fake.calls.push(call);
     const query = {
-      select() { call.operation = 'select'; return query; },
+      select() { if (!call.operation) call.operation = 'select'; return query; },
       upsert(payload) { call.operation = 'upsert'; call.payload = payload; return query; },
+      update(payload) { call.operation = 'update'; call.payload = payload; return query; },
       delete() { call.operation = 'delete'; return query; },
       eq(field, value) { call.filters.push([field, value]); return query; },
+      is(field, value) { call.filters.push([field, value]); return query; },
       order() { return query; },
+      async single() { const rows = fake.rows[table]; return { data: Array.isArray(rows) ? rows[0] : rows, error: fake.error }; },
+      async maybeSingle() { const rows = fake.rows[table]; return { data: Array.isArray(rows) ? (rows[0] ?? null) : (rows ?? null), error: fake.error }; },
       then(resolve, reject) {
         return Promise.resolve({ data: fake.rows[table] ?? [], error: fake.error }).then(resolve, reject);
       },
@@ -45,6 +49,8 @@ const fake = {
 globalThis.__horizonTestClient = fake;
 const clientUrl = `data:text/javascript,${encodeURIComponent('export const supabase = globalThis.__horizonTestClient; export const isSupabaseConfigured = true;')}`;
 const db = await import(await moduleUrl('../src/services/db.ts', { '../lib/supabase': clientUrl }));
+const profileService = await import(await moduleUrl('../src/services/profile.ts', { '../lib/supabase': clientUrl }));
+const avatar = await import(await moduleUrl('../src/utils/avatar.ts'));
 const storage = await import(await moduleUrl('../src/utils/storage.ts'));
 const datesUrl = await moduleUrl('../src/utils/dates.ts');
 const quarters = await import(await moduleUrl('../src/utils/quarters.ts', { './dates': datesUrl }));
@@ -226,4 +232,26 @@ test('cycle start dates are account scoped and never inherit the legacy device p
   assert.equal(quarters.getAppStartDate('account-b'), '2026-08-17');
   assert.notEqual(quarters.getAppStartDate('account-c'), '2001-02-03');
   assert.notEqual(quarters.getAppStartDate(), '2001-02-03');
+});
+
+test('profile updates stay scoped to the active account and normalize editable fields', async () => {
+  fake.userId = 'account-a';
+  fake.rows.profiles = {
+    id: 'account-a', display_name: 'Alex', bio: 'Una idea', avatar_path: null,
+    avatar_version: 0, cycle_start_date: '2026-10-17', created_at: 'now', updated_at: 'now',
+  };
+  const updated = await profileService.updateProfile('account-a', { displayName: '  Alex  ', bio: '  Una idea  ' });
+  assert.equal(updated.displayName, 'Alex');
+  assert.equal(fake.calls[0].table, 'profiles');
+  assert.equal(fake.calls[0].operation, 'update');
+  assert.deepEqual(fake.calls[0].payload, { display_name: 'Alex', bio: 'Una idea' });
+  assert.deepEqual(fake.calls[0].filters, [['id', 'account-a']]);
+  await assert.rejects(profileService.updateProfile('account-b', { displayName: 'Otro' }), /sesión ha cambiado/);
+  assert.equal(fake.calls.length, 1);
+});
+
+test('avatar input rejects unexpected formats and oversized originals before decoding', () => {
+  assert.doesNotThrow(() => avatar.validateAvatarFile({ type: 'image/webp', size: 1024 }));
+  assert.throws(() => avatar.validateAvatarFile({ type: 'image/svg+xml', size: 1024 }), /JPEG, PNG o WebP/);
+  assert.throws(() => avatar.validateAvatarFile({ type: 'image/png', size: avatar.AVATAR_INPUT_MAX_BYTES + 1 }), /10 MB/);
 });

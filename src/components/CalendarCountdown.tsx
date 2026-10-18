@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BigTheme, BlogEntry } from '../types';
 import { CountdownTime, getTodayDateString, formatDateSpanish } from '../utils/dates';
 import {
@@ -22,6 +22,8 @@ import {
 
 interface CalendarCountdownProps {
   userId: string;
+  cycleStartDate?: string;
+  onCycleStartDateChange?: (date: string) => Promise<void>;
   countdown?: CountdownTime;
   themes: BigTheme[];
   blogEntries: BlogEntry[];
@@ -32,6 +34,8 @@ interface CalendarCountdownProps {
 
 export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
   userId,
+  cycleStartDate,
+  onCycleStartDateChange,
   countdown: _countdown,
   themes,
   blogEntries,
@@ -45,9 +49,17 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
   const [currentMonth, setCurrentMonth] = useState<number>(parseInt(todayParts[1], 10) - 1); // 0-indexed
 
   // Start Date for the 365-day year cycle
-  const [startDateStr, setStartDateStr] = useState<string>(() => getAppStartDate(userId));
+  const [startDateStr, setStartDateStr] = useState<string>(() => cycleStartDate || getAppStartDate(userId));
   const [isEditingStartDate, setIsEditingStartDate] = useState(false);
   const [tempStartDate, setTempStartDate] = useState(startDateStr);
+  const [isSavingStartDate, setIsSavingStartDate] = useState(false);
+  const [startDateError, setStartDateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cycleStartDate || cycleStartDate === startDateStr) return;
+    setStartDateStr(cycleStartDate);
+    setTempStartDate(cycleStartDate);
+  }, [cycleStartDate, startDateStr]);
 
   // 365-Day Cycle and Quarters calculation
   const cycle365 = calculate365Cycle(startDateStr, todayStr);
@@ -64,11 +76,20 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  const handleSaveStartDate = () => {
+  const handleSaveStartDate = async () => {
     if (tempStartDate && /^\d{4}-\d{2}-\d{2}$/.test(tempStartDate)) {
-      saveAppStartDate(tempStartDate, userId);
-      setStartDateStr(tempStartDate);
-      setIsEditingStartDate(false);
+      setIsSavingStartDate(true);
+      setStartDateError(null);
+      try {
+        if (onCycleStartDateChange) await onCycleStartDateChange(tempStartDate);
+        saveAppStartDate(tempStartDate, userId);
+        setStartDateStr(tempStartDate);
+        setIsEditingStartDate(false);
+      } catch {
+        setStartDateError('No pudimos guardar la fecha. Revisa tu conexión e inténtalo de nuevo.');
+      } finally {
+        setIsSavingStartDate(false);
+      }
     }
   };
 
@@ -327,7 +348,8 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
                   />
                   <button
                     className="btn-primary btn-sm"
-                    onClick={handleSaveStartDate}
+                    onClick={() => void handleSaveStartDate()}
+                    disabled={isSavingStartDate}
                     style={{ height: 30, padding: '0 8px' }}
                     title="Confirmar nueva fecha de inicio"
                   >
@@ -336,6 +358,7 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
                   <button
                     className="btn-secondary btn-sm"
                     onClick={handleCancelEditStartDate}
+                    disabled={isSavingStartDate}
                     style={{ height: 30, padding: '0 8px' }}
                     title="Cancelar"
                   >
@@ -360,6 +383,7 @@ export const CalendarCountdown: React.FC<CalendarCountdownProps> = ({
               )}
             </div>
           </div>
+          {startDateError && <p className="app-error" role="alert">{startDateError}</p>}
         </div>
 
         <div className="subtractor-hero-art">

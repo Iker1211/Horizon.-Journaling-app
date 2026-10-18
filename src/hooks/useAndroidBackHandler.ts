@@ -8,6 +8,7 @@ interface BackHandlerProps {
   closeModals: () => void;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
+  hasUnsavedChanges?: boolean;
 }
 
 export function useAndroidBackHandler({
@@ -15,6 +16,7 @@ export function useAndroidBackHandler({
   closeModals,
   activeTab,
   setActiveTab,
+  hasUnsavedChanges = false,
 }: BackHandlerProps) {
   const lastBackPressTime = useRef<number>(0);
 
@@ -31,6 +33,8 @@ export function useAndroidBackHandler({
           closeModals();
           return;
         }
+
+        if (hasUnsavedChanges && !window.confirm('Tienes cambios sin guardar. ¿Quieres salir sin guardarlos?')) return;
 
         // 2. Si estamos en sub-vistas del editor o visor, regresar a la lista de bitácora
         if (activeTab === 'editor' || activeTab === 'entry') {
@@ -79,5 +83,5 @@ export function useAndroidBackHandler({
         removeListener();
       }
     };
-  }, [hasOpenModal, closeModals, activeTab, setActiveTab]);
+  }, [hasOpenModal, closeModals, activeTab, setActiveTab, hasUnsavedChanges]);
 }
