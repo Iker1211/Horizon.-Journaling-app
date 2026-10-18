@@ -12,7 +12,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
   const items = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, active: activeTab === 'dashboard' },
     { id: 'themes', label: 'Wrappers', icon: Layers, active: ['themes', 'wrapper-studio'].includes(activeTab) },
-    { id: 'create', label: 'Crear', icon: Plus, active: false },
+    { id: 'create', label: 'Escribir', icon: Plus, active: false },
     { id: 'blog', label: 'Bitácora', icon: BookOpen, active: ['blog', 'entry', 'editor'].includes(activeTab) },
     { id: 'calendar', label: 'Calendario', icon: Calendar, active: activeTab === 'calendar' },
   ] as const;
@@ -22,7 +22,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
         {items.map(({ id, label, icon: Icon, active }) => (
           <button key={id} type="button" className={`mobile-nav-item ${active ? 'is-active' : ''} ${id === 'create' ? 'mobile-nav-create' : ''}`}
             onClick={() => id === 'create' ? onOpenQuickAction() : setActiveTab(id)}
-            aria-current={active ? 'page' : undefined} aria-label={id === 'create' ? 'Crear entrada o wrapper' : label}>
+            aria-current={active ? 'page' : undefined} aria-label={id === 'create' ? 'Escribir entrada' : label}>
             <span className="mobile-nav-icon"><Icon size={21} strokeWidth={active ? 2.3 : 1.8} aria-hidden="true" /></span>
             <span>{label}</span>
           </button>

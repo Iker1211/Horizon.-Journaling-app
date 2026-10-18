@@ -31,6 +31,7 @@ import { useAuthCallback } from "./hooks/useAuthCallback";
 import { ProfilePage } from "./components/ProfilePage";
 import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, updateProfile, uploadAvatar } from "./services/profile";
 import { getAppStartDate, saveAppStartDate } from "./utils/quarters";
+import { canLeaveEntry } from './utils/entryDraft';
 
 export const App: React.FC = () => {
   // Navigation & Route state
@@ -39,6 +40,12 @@ export const App: React.FC = () => {
   const [editorThemeId, setEditorThemeId] = useState<string | null>(null);
   const [viewingEntryId, setViewingEntryId] = useState<string | null>(null);
   const [activeWrapperStudioId, setActiveWrapperStudioId] = useState<string | null>(null);
+  const lastRouteRef = useRef(window.location.hash);
+  const approvedRouteRef = useRef<string | null>(null);
+  const continueAfterWrapper = useRef(false);
+  const journalScrollRef = useRef(0);
+  const [journalQuery, setJournalQuery] = useState('');
+  const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
 
   // Supabase Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -139,6 +146,13 @@ export const App: React.FC = () => {
   // Sync route with URL hash for browser history, reload and back button
   useEffect(() => {
     const handleHashChange = () => {
+      const nextRoute = window.location.hash;
+      if (nextRoute !== lastRouteRef.current && approvedRouteRef.current !== nextRoute && !canLeaveEntry()) {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${lastRouteRef.current}`);
+        return;
+      }
+      approvedRouteRef.current = null;
+      lastRouteRef.current = nextRoute;
       const hash = window.location.hash.replace(/^#\/?/, "");
       if (!hash || hash === "dashboard") {
         setActiveTab("dashboard");
@@ -191,6 +205,8 @@ export const App: React.FC = () => {
         setDataError(null);
         setOperationError(null);
         setSelectedThemeFilter(null);
+        setJournalQuery('');
+        setSavedEntryId(null);
         setThemeToEdit(null);
         setIsThemeModalOpen(false);
         setIsQuickActionSheetOpen(false);
@@ -309,8 +325,15 @@ export const App: React.FC = () => {
   }, [user?.id, reloadVersion]);
 
   // --- Route Handlers ---
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => document.getElementById('main-content')?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, viewingEntryId, isDataLoading]);
+
   const navigateToTab = (tab: ActiveTab) => {
+    if (!canLeaveEntry()) return;
     if (activeTab === 'profile' && tab !== 'profile' && isProfileDirty && !window.confirm('Tienes cambios sin guardar. ¿Quieres salir sin guardarlos?')) return;
+    approvedRouteRef.current = `#/${tab}`;
     setActiveTab(tab);
     if (tab === "dashboard" || tab === "calendar" || tab === "themes" || tab === "blog" || tab === "profile") {
       window.location.hash = `#/${tab}`;
@@ -319,6 +342,8 @@ export const App: React.FC = () => {
   };
 
   const handleOpenWrapperStudio = (wrapperId: string) => {
+    if (!canLeaveEntry()) return;
+    approvedRouteRef.current = `#/w/${wrapperId}`;
     setActiveWrapperStudioId(wrapperId);
     setActiveTab("wrapper-studio");
     window.location.hash = `#/w/${wrapperId}`;
@@ -326,25 +351,26 @@ export const App: React.FC = () => {
   };
 
   const handleOpenEditor = (entryId?: string, themeId?: string) => {
+    if (activeTab === 'editor' && (entryId || null) === editorEntryId) return;
+    if (!canLeaveEntry()) return;
     if (!themes.length && !entryId) {
+      continueAfterWrapper.current = true;
       setThemeToEdit(null);
       setIsThemeModalOpen(true);
       return;
     }
     setEditorEntryId(entryId || null);
     setEditorThemeId(themeId || selectedThemeFilter || null);
+    approvedRouteRef.current = entryId ? `#/write?edit=${entryId}` : (themeId || selectedThemeFilter) ? `#/write?theme=${themeId || selectedThemeFilter}` : '#/write';
     setActiveTab("editor");
-    if (entryId) {
-      window.location.hash = `#/write?edit=${entryId}`;
-    } else if (themeId) {
-      window.location.hash = `#/write?theme=${themeId}`;
-    } else {
-      window.location.hash = "#/write";
-    }
+    window.location.hash = approvedRouteRef.current;
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleOpenEntry = (entryId: string) => {
+    if (!canLeaveEntry()) return;
+    if (activeTab === 'blog') journalScrollRef.current = window.scrollY;
+    approvedRouteRef.current = `#/entry/${entryId}`;
     setViewingEntryId(entryId);
     setActiveTab("entry");
     window.location.hash = `#/entry/${entryId}`;
@@ -352,11 +378,17 @@ export const App: React.FC = () => {
   };
 
   const handleBackToBlog = () => {
+    if (!canLeaveEntry()) return;
+    const returnEntryId = viewingEntryId || editorEntryId;
+    approvedRouteRef.current = '#/blog';
     setActiveTab("blog");
     setViewingEntryId(null);
     setEditorEntryId(null);
     window.location.hash = "#/blog";
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: journalScrollRef.current, behavior: 'instant' });
+      if (returnEntryId) document.getElementById(`journal-entry-${returnEntryId}`)?.focus({ preventScroll: true });
+    });
   };
 
   const requireCurrentAccount = () => {
@@ -373,10 +405,18 @@ export const App: React.FC = () => {
   const handleSaveTheme = async (theme: BigTheme) => {
     const { userId, epoch } = requireCurrentAccount();
     await saveThemeItem(theme, userId);
-    const updated = await getThemes(userId);
     if (!isCurrentAccount(userId, epoch)) throw new Error("Tu sesión ha cambiado.");
-    setAccountData(previous => previous.ownerId === userId ? { ...previous, themes: updated } : previous);
+    setAccountData(previous => previous.ownerId === userId ? { ...previous, themes: [...previous.themes.filter(item => item.id !== theme.id), theme] } : previous);
     setOperationError(null);
+    if (continueAfterWrapper.current) {
+      continueAfterWrapper.current = false;
+      setEditorEntryId(null);
+      setEditorThemeId(theme.id);
+      approvedRouteRef.current = `#/write?theme=${theme.id}`;
+      window.location.hash = approvedRouteRef.current;
+      setActiveTab('editor');
+      window.scrollTo(0, 0);
+    }
   };
 
   const handleDeleteTheme = async (id: string) => {
@@ -397,9 +437,8 @@ export const App: React.FC = () => {
   const handleSaveBlogEntry = async (entry: BlogEntry) => {
     const { userId, epoch } = requireCurrentAccount();
     await saveBlogEntryItem(entry, userId);
-    const updated = await getBlogEntries(userId);
     if (!isCurrentAccount(userId, epoch)) throw new Error("Tu sesión ha cambiado.");
-    setAccountData(previous => previous.ownerId === userId ? { ...previous, blogEntries: updated } : previous);
+    setAccountData(previous => previous.ownerId === userId ? { ...previous, blogEntries: [entry, ...previous.blogEntries.filter(item => item.id !== entry.id)] } : previous);
     setOperationError(null);
   };
 
@@ -407,13 +446,12 @@ export const App: React.FC = () => {
     const { userId, epoch } = requireCurrentAccount();
     try {
       await deleteBlogEntryItem(id, userId);
-      const updated = await getBlogEntries(userId);
-      if (!isCurrentAccount(userId, epoch)) return;
-      setAccountData(previous => previous.ownerId === userId ? { ...previous, blogEntries: updated } : previous);
-      if (viewingEntryId === id) handleBackToBlog();
+      if (!isCurrentAccount(userId, epoch)) throw new Error('Tu sesión ha cambiado.');
+      setAccountData(previous => previous.ownerId === userId ? { ...previous, blogEntries: previous.blogEntries.filter(entry => entry.id !== id) } : previous);
       setOperationError(null);
     } catch {
       if (isCurrentAccount(userId, epoch)) setOperationError("No pudimos eliminar la entrada. Vuelve a intentarlo.");
+      throw new Error('No pudimos eliminar la entrada. Vuelve a intentarlo.');
     }
   };
 
@@ -540,8 +578,9 @@ export const App: React.FC = () => {
   } else if (!ownsLoadedData || isDataLoading || dataError) {
     page = (
       <div className="app-shell">
+        <a href="#main-content" className="skip-link" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
         <header className="welcome-brand"><FireGoatLogo size={32} withGlow={false} /><span>Horizon</span></header>
-        <main className="welcome-screen"><div className="welcome-content app-status">
+        <main id="main-content" tabIndex={-1} className="welcome-screen"><div className="welcome-content app-status">
           {dataError ? <><h1>No pudimos conectar.</h1><p className="app-error" role="alert">{dataError}</p><button className="btn-primary" onClick={() => setReloadVersion(version => version + 1)}>Volver a intentar</button></> : <p role="status">Cargando tu espacio…</p>}
           <button className="btn-secondary" onClick={() => { void handleSignOut().catch(() => {}); }}>Cerrar sesión</button>
           {operationError && <p className="app-error" role="alert">{operationError}</p>}
@@ -564,6 +603,7 @@ export const App: React.FC = () => {
       blogEntries={blogEntries}
     >
       <div className="app-shell">
+        <a href="#main-content" className="skip-link" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
         <Navbar
           activeTab={activeTab}
           setActiveTab={navigateToTab}
@@ -574,7 +614,8 @@ export const App: React.FC = () => {
           onOpenAuth={() => navigateToTab('profile')}
         />
 
-        <main className="app-main-layout" style={{ flex: 1 }}>
+        <main id="main-content" tabIndex={-1} className="app-main-layout" style={{ flex: 1 }}>
+          {savedEntryId && activeTab === 'entry' && viewingEntryId === savedEntryId && <p className="entry-saved-confirmation" role="status">Entrada guardada en tu cuenta.<button type="button" aria-label="Cerrar confirmación" onClick={() => setSavedEntryId(null)}>×</button></p>}
           {operationError && <div className="app-error app-operation-error" role="alert">{operationError}<button onClick={() => setOperationError(null)} aria-label="Cerrar aviso">×</button></div>}
           {activeTab === "dashboard" && (
             <Dashboard
@@ -592,7 +633,8 @@ export const App: React.FC = () => {
               onOpenWrapperStudio={handleOpenWrapperStudio}
               onWriteForTheme={themeId => handleOpenEditor(undefined, themeId)}
               onOpenQuickEntry={() => handleOpenEditor()}
-              onCreateWrapper={() => { setThemeToEdit(null); setIsThemeModalOpen(true); }}
+              onCreateWrapper={() => { continueAfterWrapper.current = !themes.length; setThemeToEdit(null); setIsThemeModalOpen(true); }}
+              onResumeDraft={id => handleOpenEditor(id || undefined)}
             />
           )}
 
@@ -668,6 +710,8 @@ export const App: React.FC = () => {
 
         {activeTab === "blog" && (
           <BlogJournal
+            searchQuery={journalQuery}
+            onSearchQueryChange={setJournalQuery}
             userId={user.id}
             entries={blogEntries}
             themes={themes}
@@ -713,11 +757,13 @@ export const App: React.FC = () => {
               <button className="btn-primary" onClick={() => { setThemeToEdit(null); setIsThemeModalOpen(true); }}>Crear un wrapper</button>
             </div>
           ) : <BlogEditorPage
+            key={`${user.id}:${editorEntryId || 'new'}`}
             userId={user.id}
             themes={themes}
             initialThemeId={editorThemeId}
             entryToEdit={activeEditingEntry}
             onSave={handleSaveBlogEntry}
+            onSaved={entry => { setSavedEntryId(entry.id); handleOpenEntry(entry.id); }}
             onBack={handleBackToBlog}
           />
         )}
@@ -726,6 +772,7 @@ export const App: React.FC = () => {
         {activeTab === "entry" && (
           activeViewingEntry ? (
             <BlogEntryViewPage
+              key={activeViewingEntry.id}
               entry={activeViewingEntry}
               themes={themes}
               allEntries={blogEntries}
@@ -755,7 +802,7 @@ export const App: React.FC = () => {
       {/* Modals for Themes & Auth */}
       <ThemeModal
         isOpen={isThemeModalOpen}
-        onClose={() => setIsThemeModalOpen(false)}
+        onClose={() => { continueAfterWrapper.current = false; setIsThemeModalOpen(false); }}
         onSave={handleSaveTheme}
         themeToEdit={themeToEdit}
       />
@@ -777,7 +824,7 @@ export const App: React.FC = () => {
         <BottomNav
           activeTab={activeTab}
           setActiveTab={navigateToTab}
-          onOpenQuickAction={() => setIsQuickActionSheetOpen(true)}
+          onOpenQuickAction={() => handleOpenEditor()}
         />
       )}
       </div>

@@ -3,6 +3,7 @@ import { BigTheme, BlogEntry, ActiveTab } from '../types';
 import { CountdownTime, formatDateSpanish } from '../utils/dates';
 import { calculate365Cycle, getAppStartDate } from '../utils/quarters';
 import { HumanLifespanHero } from './HumanLifespanHero';
+import { PendingDrafts } from './PendingDrafts';
 import { ArrowRight, BookOpen, CalendarDays, Layers, PenLine, Plus, Target } from 'lucide-react';
 
 interface DashboardProps {
@@ -18,6 +19,7 @@ interface DashboardProps {
   onWriteForTheme?: (themeId: string) => void;
   onOpenQuickEntry?: () => void;
   onCreateWrapper?: () => void;
+  onResumeDraft?: (entryId: string | null) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -33,6 +35,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onWriteForTheme,
   onOpenQuickEntry,
   onCreateWrapper,
+  onResumeDraft,
 }) => {
   const cycle = calculate365Cycle(cycleStartDate || getAppStartDate(userId));
   const hasWrappers = themes.length > 0;
@@ -63,20 +66,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </h1>
             <p className="dashboard-hero-description">
               {hasWrappers
-                ? 'Tu horizonte no se espera en la distancia: se construye con cada idea, cada avance y cada reflexión que decides guardar.'
-                : 'Haz espacio para lo que importa, escribe tu primera intención y empieza a construir el camino que quieres recorrer.'}
+                ? 'Una idea, un aprendizaje, algo que quieras recordar. Hazle un espacio.'
+                : 'Tu primer wrapper reúne las entradas de un tema o proyecto. Dale un nombre y empieza a escribir.'}
             </p>
             <div className="dashboard-hero-actions">
               <button type="button" className="btn-primary dashboard-primary-action" onClick={hasWrappers ? writeEntry : createWrapper}>
                 {hasWrappers ? <PenLine size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
                 {hasWrappers ? 'Escribir una entrada' : 'Crear mi primer wrapper'}
               </button>
-              <button type="button" className="dashboard-text-action" onClick={() => setActiveTab('calendar')}>
-                Ver calendario <ArrowRight size={16} aria-hidden="true" />
+              <button type="button" className="dashboard-text-action" onClick={() => setActiveTab('blog')}>
+                Ver mi bitácora <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
           </div>
-          <div className="dashboard-horizon" aria-label={countdown.is2027orLater ? `${countdown.days} días para cerrar 2027` : `${countdown.days} días para 2027`}>
+          <div className="dashboard-horizon" role="img" aria-label={countdown.is2027orLater ? `${countdown.days} días para cerrar 2027` : `${countdown.days} días para 2027`}>
             <div className="dashboard-horizon-caption">
               <span className="dashboard-horizon-kicker">Horizon 2027</span>
               <span className="dashboard-horizon-number">{countdown.days}</span>
@@ -85,74 +88,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </header>
 
-        <div className="dashboard-overview" aria-label="Resumen de tu espacio">
-          <button type="button" onClick={() => setActiveTab('themes')}>
-            <span className="dashboard-stat-icon"><Layers size={19} aria-hidden="true" /></span>
-            <span><strong>{themes.length}</strong><span>Wrappers</span></span>
-            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => setActiveTab('blog')}>
-            <span className="dashboard-stat-icon"><BookOpen size={19} aria-hidden="true" /></span>
-            <span><strong>{blogEntries.length}</strong><span>Entradas</span></span>
-            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => setActiveTab('themes')}>
-            <span className="dashboard-stat-icon"><Target size={19} aria-hidden="true" /></span>
-            <span><strong>{goalCount}</strong><span>Metas</span></span>
-            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
-          </button>
-        </div>
-
-        <section aria-labelledby="dashboard-wrappers-title">
-          <div className="dashboard-section-heading">
-            <div>
-              <h2 id="dashboard-wrappers-title">Tus wrappers</h2>
-              <p>Un espacio para cada cosa que te importa.</p>
-            </div>
-            {hasWrappers && (
-              <button type="button" className="dashboard-text-action" onClick={() => setActiveTab('themes')}>
-                Ver todos <ArrowRight size={16} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-          {hasWrappers ? (
-            <div className="dashboard-wrapper-grid">
-              {themes.slice(0, 4).map(theme => {
-                const entryCount = blogEntries.filter(entry => entry.themeId === theme.id).length;
-                return (
-                  <article key={theme.id} className={`dashboard-wrapper-card dashboard-color-${theme.color}`}>
-                    <button type="button" className="dashboard-wrapper-open" onClick={() => openWrapper(theme.id)} aria-label={`Abrir wrapper ${theme.name}`}>
-                      <span className="dashboard-wrapper-topline">
-                        <span className="dashboard-wrapper-symbol"><Layers size={20} aria-hidden="true" /></span>
-                        <span className="dashboard-priority">Prioridad {theme.priority}</span>
-                        <ArrowRight size={18} aria-hidden="true" />
-                      </span>
-                      <span className="dashboard-wrapper-name">{theme.name}</span>
-                      <span className="dashboard-wrapper-description">{theme.description || 'Un espacio para tus próximos pasos.'}</span>
-                      <span className="dashboard-wrapper-meta">
-                        {theme.targetGoals2027.length} {theme.targetGoals2027.length === 1 ? 'meta' : 'metas'}
-                        <span aria-hidden="true">·</span>
-                        {entryCount} {entryCount === 1 ? 'entrada' : 'entradas'}
-                      </span>
-                    </button>
-                    <button type="button" className="dashboard-wrapper-write" onClick={() => onWriteForTheme ? onWriteForTheme(theme.id) : writeEntry()} aria-label={`Escribir una entrada en ${theme.name}`}>
-                      <PenLine size={16} aria-hidden="true" /> Escribir aquí
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="dashboard-empty-wrapper">
-              <span className="dashboard-empty-symbol"><Layers size={25} aria-hidden="true" /></span>
-              <div>
-                <h3>Empieza con algo que quieras cuidar.</h3>
-                <p>Un wrapper reúne las metas y reflexiones de un área de tu vida. Tú eliges el nombre y el rumbo.</p>
-              </div>
-              <button type="button" className="btn-secondary" onClick={createWrapper}><Plus size={17} aria-hidden="true" /> Crear wrapper</button>
-            </div>
-          )}
-        </section>
+        <PendingDrafts userId={userId} entries={blogEntries} onResume={id => onResumeDraft ? onResumeDraft(id) : writeEntry()} />
 
         <div className="dashboard-lower-grid">
           <section className="dashboard-journal" aria-labelledby="dashboard-journal-title">
@@ -211,6 +147,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <HumanLifespanHero />
           </aside>
         </div>
+        <section className="dashboard-wrappers-section" aria-labelledby="dashboard-wrappers-title">
+          <div className="dashboard-section-heading">
+            <div>
+              <h2 id="dashboard-wrappers-title">Tus wrappers</h2>
+              <p>Un espacio para cada cosa que te importa.</p>
+            </div>
+            {hasWrappers && (
+              <button type="button" className="dashboard-text-action" onClick={() => setActiveTab('themes')}>
+                Ver todos <ArrowRight size={16} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          {hasWrappers ? (
+            <div className="dashboard-wrapper-grid">
+              {themes.slice(0, 4).map(theme => {
+                const entryCount = blogEntries.filter(entry => entry.themeId === theme.id).length;
+                return (
+                  <article key={theme.id} className={`dashboard-wrapper-card dashboard-color-${theme.color}`}>
+                    <button type="button" className="dashboard-wrapper-open" onClick={() => openWrapper(theme.id)}>
+                      <span className="dashboard-wrapper-topline">
+                        <span className="dashboard-wrapper-symbol"><Layers size={20} aria-hidden="true" /></span>
+                        <span className="dashboard-priority">Prioridad {theme.priority}</span>
+                        <ArrowRight size={18} aria-hidden="true" />
+                      </span>
+                      <span className="dashboard-wrapper-name">{theme.name}</span>
+                      <span className="dashboard-wrapper-description">{theme.description || 'Un espacio para tus próximos pasos.'}</span>
+                      <span className="dashboard-wrapper-meta">
+                        {theme.targetGoals2027.length} {theme.targetGoals2027.length === 1 ? 'meta' : 'metas'}
+                        <span aria-hidden="true">·</span>
+                        {entryCount} {entryCount === 1 ? 'entrada' : 'entradas'}
+                      </span>
+                    </button>
+                    <button type="button" className="dashboard-wrapper-write" onClick={() => onWriteForTheme ? onWriteForTheme(theme.id) : writeEntry()} aria-label={`Escribir aquí: ${theme.name}`}>
+                      <PenLine size={16} aria-hidden="true" /> Escribir aquí
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="dashboard-empty-wrapper">
+              <span className="dashboard-empty-symbol"><Layers size={25} aria-hidden="true" /></span>
+              <div>
+                <h3>Empieza con algo que quieras cuidar.</h3>
+                <p>Un wrapper reúne las metas y reflexiones de un área de tu vida. Tú eliges el nombre y el rumbo.</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={createWrapper}><Plus size={17} aria-hidden="true" /> Crear wrapper</button>
+            </div>
+          )}
+        </section>
+
+        <div className="dashboard-overview" role="group" aria-label="Resumen de tu espacio">
+          <button type="button" onClick={() => setActiveTab('themes')}>
+            <span className="dashboard-stat-icon"><Layers size={19} aria-hidden="true" /></span>
+            <span><strong>{themes.length}</strong><span>Wrappers</span></span>
+            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => setActiveTab('blog')}>
+            <span className="dashboard-stat-icon"><BookOpen size={19} aria-hidden="true" /></span>
+            <span><strong>{blogEntries.length}</strong><span>Entradas</span></span>
+            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => setActiveTab('themes')}>
+            <span className="dashboard-stat-icon"><Target size={19} aria-hidden="true" /></span>
+            <span><strong>{goalCount}</strong><span>Metas</span></span>
+            <ArrowRight size={15} className="dashboard-stat-arrow" aria-hidden="true" />
+          </button>
+        </div>
+
       </div>
     </div>
   );

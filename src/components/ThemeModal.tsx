@@ -138,7 +138,7 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
 
           <div>
             <label htmlFor="theme-desc-input" className="caption-uppercase" style={{ display: 'block', marginBottom: 6 }}>
-              ¿Qué quieres lograr?
+              ¿Qué quieres lograr? · opcional
             </label>
             <textarea
               id="theme-desc-input"
@@ -150,6 +150,9 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
             />
           </div>
 
+          <details className="wrapper-optional-details" open={Boolean(themeToEdit)}>
+          <summary>Personalizar wrapper <span>Color, prioridad y metas · opcional</span></summary>
+          <div className="wrapper-optional-fields">
           <div>
             <label className="caption-uppercase" style={{ display: 'block', marginBottom: 6 }}>
               Color
@@ -244,6 +247,8 @@ export const ThemeModal: React.FC<ThemeModalProps> = ({
             </div>
           </div>
 
+          </div>
+          </details>
           {saveError && <p className="form-error" role="alert">{saveError}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
             <button type="button" className="btn-secondary" onClick={onClose} disabled={isSaving}>

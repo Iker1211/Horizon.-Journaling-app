@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Keyboard } from '@capacitor/keyboard';
 import { ActiveTab } from '../types';
 
 interface BackHandlerProps {
@@ -9,6 +10,7 @@ interface BackHandlerProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   hasUnsavedChanges?: boolean;
+  beforeNavigate?: () => boolean;
 }
 
 export function useAndroidBackHandler({
@@ -17,6 +19,7 @@ export function useAndroidBackHandler({
   activeTab,
   setActiveTab,
   hasUnsavedChanges = false,
+  beforeNavigate,
 }: BackHandlerProps) {
   const lastBackPressTime = useRef<number>(0);
 
@@ -28,31 +31,34 @@ export function useAndroidBackHandler({
 
     const setupListener = async () => {
       const handle = await CapApp.addListener('backButton', () => {
+        // If the WebView receives back while the IME is open, dismiss it before navigating.
+        if (document.documentElement.classList.contains('keyboard-open')) {
+          void Keyboard.hide().catch(() => {});
+          return;
+        }
         // 1. Si hay un modal u hoja abierta, cerrarlo prioritariamente
         if (hasOpenModal) {
           closeModals();
           return;
         }
 
+        if (beforeNavigate && !beforeNavigate()) return;
         if (hasUnsavedChanges && !window.confirm('Tienes cambios sin guardar. ¿Quieres salir sin guardarlos?')) return;
 
         // 2. Si estamos en sub-vistas del editor o visor, regresar a la lista de bitácora
         if (activeTab === 'editor' || activeTab === 'entry') {
-          setActiveTab('blog');
           window.location.hash = 'blog';
           return;
         }
 
         // 3. Si estamos en el estudio de wrapper, regresar a Wrappers
         if (activeTab === 'wrapper-studio') {
-          setActiveTab('themes');
           window.location.hash = 'themes';
           return;
         }
 
         // 4. Si estamos en otra pestaña principal que no sea el Dashboard, volver al Dashboard
         if (activeTab !== 'dashboard') {
-          setActiveTab('dashboard');
           window.location.hash = 'dashboard';
           return;
         }
@@ -83,5 +89,5 @@ export function useAndroidBackHandler({
         removeListener();
       }
     };
-  }, [hasOpenModal, closeModals, activeTab, setActiveTab, hasUnsavedChanges]);
+  }, [hasOpenModal, closeModals, activeTab, setActiveTab, hasUnsavedChanges, beforeNavigate]);
 }

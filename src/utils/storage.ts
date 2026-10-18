@@ -17,6 +17,9 @@ export function loadBlogDraft(userId: string, entryId?: string | null): BlogDraf
     if (!draft || typeof draft !== 'object') return null;
     const fields: (keyof BlogDraft)[] = ['title', 'themeId', 'date', 'summary', 'content', 'tagsInput', 'savedAt'];
     if (!fields.every(field => typeof (draft as BlogDraft)[field] === 'string')) return null;
+    if (!Number.isFinite(Date.parse((draft as BlogDraft).savedAt))) return null;
+    if ((draft as BlogDraft).entryId !== undefined && typeof (draft as BlogDraft).entryId !== 'string') return null;
+    if ((draft as BlogDraft).createdAt !== undefined && typeof (draft as BlogDraft).createdAt !== 'string') return null;
     return draft as BlogDraft;
   } catch {
     return null;

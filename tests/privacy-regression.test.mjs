@@ -52,6 +52,7 @@ const db = await import(await moduleUrl('../src/services/db.ts', { '../lib/supab
 const profileService = await import(await moduleUrl('../src/services/profile.ts', { '../lib/supabase': clientUrl }));
 const avatar = await import(await moduleUrl('../src/utils/avatar.ts'));
 const storage = await import(await moduleUrl('../src/utils/storage.ts'));
+const draftRecovery = await import(await moduleUrl('../src/utils/entryDraft.ts', { './storage': await moduleUrl('../src/utils/storage.ts') }));
 const datesUrl = await moduleUrl('../src/utils/dates.ts');
 const quarters = await import(await moduleUrl('../src/utils/quarters.ts', { './dates': datesUrl }));
 const capacitorUrl = `data:text/javascript,${encodeURIComponent(`export const Capacitor = { isNativePlatform: () => globalThis.__horizonNative === true };`)}`;
@@ -213,6 +214,52 @@ test('unsaved edits are isolated by account and entry', () => {
   storage.clearBlogDraft('account-a', 'entry-a');
   assert.equal(storage.loadBlogDraft('account-a', 'entry-a'), null);
   assert.deepEqual(storage.loadBlogDraft('account-a', 'entry-b'), editB);
+});
+
+test('recovery finds edited entries as well as a fresh draft, without crossing accounts', () => {
+  const first = { ...entry, id: 'entry-a' };
+  const second = { ...entry, id: 'entry-b' };
+  const recent = { ...draft, savedAt: '2026-10-18T12:00:00Z' };
+  storage.saveBlogDraft(recent, 'account-a');
+  storage.saveBlogDraft({ ...recent, title: 'Edit A' }, 'account-a', first.id);
+  storage.saveBlogDraft({ ...recent, title: 'Edit B' }, 'account-a', second.id);
+  assert.deepEqual(draftRecovery.pendingEntryDrafts('account-a', [first, second]).map(v => v.entryId).sort(), ['entry-a', 'entry-b', null].sort());
+  assert.deepEqual(draftRecovery.pendingEntryDrafts('account-b', [first, second]), []);
+  storage.clearBlogDraft('account-a', first.id);
+  assert.equal(draftRecovery.pendingEntryDrafts('account-a', [first, second]).length, 2);
+});
+
+test('unchanged and older drafts are not offered as unfinished work; empty edited content can be recovered', () => {
+  const matching = { title: entry.title, themeId: entry.themeId, date: entry.date, summary: entry.summary, content: entry.content, tagsInput: '', savedAt: '2026-10-18T12:00:00Z' };
+  storage.saveBlogDraft(matching, 'account-a', entry.id);
+  assert.equal(draftRecovery.recoverableDraft('account-a', entry), null);
+  storage.saveBlogDraft({ ...matching, content: '' }, 'account-a', entry.id);
+  assert.equal(draftRecovery.recoverableDraft('account-a', entry).content, '');
+  storage.saveBlogDraft({ ...matching, content: 'Stale text', savedAt: '2025-01-01T00:00:00Z' }, 'account-a', entry.id);
+  assert.equal(draftRecovery.recoverableDraft('account-a', entry), null);
+});
+
+test('a draft preserves the same entry identity across retries and reloads', () => {
+  const stable = { ...draft, entryId: 'blog-stable-id', createdAt: draft.savedAt };
+  storage.saveBlogDraft(stable, 'account-a');
+  const recovered = draftRecovery.recoverableDraft('account-a');
+  assert.equal(recovered.entryId, stable.entryId);
+  assert.equal(recovered.createdAt, stable.createdAt);
+  storage.saveBlogDraft({ ...recovered, content: 'Retry with more text' }, 'account-a');
+  assert.equal(storage.loadBlogDraft('account-a').entryId, stable.entryId);
+  storage.saveBlogDraft({ ...stable, savedAt: 'not-a-date' }, 'account-a');
+  assert.equal(storage.loadBlogDraft('account-a'), null);
+});
+
+test('the navigation boundary lets an editor cancel app and history transitions', () => {
+  const target = new EventTarget();
+  window.dispatchEvent = event => target.dispatchEvent(event);
+  assert.equal(draftRecovery.canLeaveEntry(), true);
+  const prevent = event => event.preventDefault();
+  target.addEventListener(draftRecovery.ENTRY_LEAVE_EVENT, prevent);
+  assert.equal(draftRecovery.canLeaveEntry(), false);
+  target.removeEventListener(draftRecovery.ENTRY_LEAVE_EVENT, prevent);
+  assert.equal(draftRecovery.canLeaveEntry(), true);
 });
 
 test('malformed drafts are ignored and unavailable device storage reports an unsaved draft', () => {

@@ -20,7 +20,7 @@ interface BlogEntryViewPageProps {
   allEntries: BlogEntry[];
   onBack: () => void;
   onEdit: (entry: BlogEntry) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
   onSelectEntry: (entryId: string) => void;
 }
 
@@ -34,6 +34,8 @@ export const BlogEntryViewPage: React.FC<BlogEntryViewPageProps> = ({
   onSelectEntry,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const theme = themes.find(t => t.id === entry.themeId);
 
   // Find previous and next entries for sequential reading
@@ -44,17 +46,19 @@ export const BlogEntryViewPage: React.FC<BlogEntryViewPageProps> = ({
   const prevEntry = currentIndex < sortedEntries.length - 1 ? sortedEntries[currentIndex + 1] : null;
   const nextEntry = currentIndex > 0 ? sortedEntries[currentIndex - 1] : null;
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setActionError(null);
+    } catch { setActionError('No pudimos copiar el enlace. Puedes copiarlo desde la barra de direcciones.'); }
   };
 
   return (
-    <div className="reader-page-container">
+    <div className="reader-page-container journey-reader">
       {/* Navigation and Actions */}
       <div className="editor-top-nav">
-        <button type="button" onClick={onBack} className="editor-back-btn">
+        <button type="button" onClick={onBack} className="editor-back-btn" disabled={deleting}>
           <ArrowLeft size={16} />
           <span>Volver a Bitácora</span>
         </button>
@@ -62,30 +66,30 @@ export const BlogEntryViewPage: React.FC<BlogEntryViewPageProps> = ({
         <div className="editor-actions-group">
           <button
             type="button"
-            onClick={handleCopyLink}
-            className="btn-secondary btn-sm"
-            title="Copiar enlace directo a esta entrada"
-          >
-            {copied ? <Check size={14} color="var(--color-success)" /> : <Share2 size={14} />}
-            <span>{copied ? "¡Enlace copiado!" : "Copiar enlace"}</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => onEdit(entry)}
-            className="btn-secondary btn-sm"
-            title="Editar esta entrada en el editor Markdown"
+            className="btn-primary"
+            disabled={deleting}
+            title="Editar esta entrada"
           >
             <Edit2 size={14} />
             <span>Editar</span>
           </button>
 
+          <details className="reader-more"><summary>Más opciones</summary><div>
+          <p className="reader-private-note">Esta entrada es privada. El enlace solo funciona dentro de tu cuenta.</p>
+          <button type="button" onClick={() => void handleCopyLink()} className="btn-secondary" disabled={deleting}>
+            {copied ? <Check size={14} aria-hidden /> : <Share2 size={14} aria-hidden />}
+            <span>{copied ? 'Enlace copiado' : 'Copiar enlace privado'}</span>
+          </button>
           <button
             type="button"
-            onClick={() => {
+            disabled={deleting}
+            onClick={async () => {
               if (window.confirm(`¿Eliminar la entrada "${entry.title}"?`)) {
-                onDelete(entry.id);
-                onBack();
+                setDeleting(true); setActionError(null);
+                try { await onDelete(entry.id); onBack(); }
+                catch { setActionError('No pudimos eliminar la entrada. Sigue aquí; vuelve a intentarlo.'); }
+                finally { setDeleting(false); }
               }
             }}
             className="btn-secondary btn-sm"
@@ -93,10 +97,13 @@ export const BlogEntryViewPage: React.FC<BlogEntryViewPageProps> = ({
             title="Eliminar esta entrada"
           >
             <Trash2 size={14} />
-            <span>Eliminar</span>
+            <span>{deleting ? 'Eliminando…' : 'Eliminar entrada'}</span>
           </button>
+          </div></details>
         </div>
       </div>
+      {actionError && <p className="form-error" role="alert">{actionError}</p>}
+      {copied && <p className="entry-notice" role="status">Enlace privado copiado.</p>}
 
       {/* The Single Column Markdown Sheet */}
       <article className="reader-article-sheet">
@@ -157,7 +164,7 @@ export const BlogEntryViewPage: React.FC<BlogEntryViewPageProps> = ({
               borderLeftColor: theme ? `var(--color-brand-${theme.color})` : undefined,
             }}
           >
-            "{entry.summary}"
+            {entry.summary}
           </div>
         )}
 

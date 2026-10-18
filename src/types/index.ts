@@ -28,6 +28,8 @@ export interface BlogEntry {
 }
 
 export interface BlogDraft {
+  entryId?: string;
+  createdAt?: string;
   title: string;
   themeId: string;
   date: string;

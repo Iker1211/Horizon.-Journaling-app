@@ -1,7 +1,7 @@
 {
   "name": "horizon",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "assets:generate": "node scripts/generate-assets.mjs",
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android",
-    "test": "node --test tests/privacy-regression.test.mjs"
+    "test": "node --test tests/privacy-regression.test.mjs",
+    "test:preview-boundary": "node scripts/check-ux-preview-build.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
@@ -23,6 +24,7 @@
     "@capacitor/status-bar": "^8.0.3",
     "@supabase/supabase-js": "^2.113.0",
     "canvas-confetti": "^1.9.4",
+    "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
     "lucide-react": "^1.39.0",
     "marked": "^18.0.11",
@@ -36,6 +38,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "axe-core": "^4.14.0",
     "oxlint": "^1.79.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"

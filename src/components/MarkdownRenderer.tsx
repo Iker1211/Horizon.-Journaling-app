@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { marked } from "marked";
+import DOMPurify from 'dompurify';
 
 interface MarkdownRendererProps {
   content: string;
@@ -23,10 +24,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       return "<p class=\"markdown-empty-placeholder\" style=\"color: var(--color-muted); font-style: italic;\">No hay contenido escrito aún...</p>";
     }
     try {
-      return marked.parse(content) as string;
-    } catch (e) {
-      console.error("Markdown parse error:", e);
-      return "<p>" + content + "</p>";
+      return DOMPurify.sanitize(marked.parse(content) as string, { USE_PROFILES: { html: true }, FORBID_TAGS: ['style', 'form', 'iframe'], FORBID_ATTR: ['style'] });
+    } catch {
+      return DOMPurify.sanitize(content, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
     }
   }, [content]);
 
