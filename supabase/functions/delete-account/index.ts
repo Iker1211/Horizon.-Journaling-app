@@ -23,15 +23,15 @@ Deno.serve(async request => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !anonKey || !serviceRoleKey) return response({ error: 'Servicio no disponible.' }, 503);
 
-    const body = await request.json().catch(() => ({}));
-    if (body?.confirmation !== 'ELIMINAR' || typeof body?.currentPassword !== 'string' || body.currentPassword.length === 0) {
-      return response({ error: 'La confirmación y la contraseña actual son obligatorias.' }, 400);
-    }
-
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     const user = userData.user;
     if (userError || !user?.email) return response({ error: 'La sesión no es válida.' }, 401);
+
+    const body = await request.json().catch(() => ({}));
+    if (body?.confirmation !== 'ELIMINAR' || typeof body?.currentPassword !== 'string' || body.currentPassword.length === 0) {
+      return response({ error: 'La confirmación y la contraseña actual son obligatorias.' }, 400);
+    }
 
     const verificationClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const verification = await verificationClient.auth.signInWithPassword({ email: user.email, password: body.currentPassword });
