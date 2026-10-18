@@ -8,7 +8,7 @@ En **Authentication → URL Configuration**:
 
 1. Cambia **Site URL** por la URL pública real de Horizon. No uses `localhost` en producción.
 2. Añade `horizon://auth/callback` a **Redirect URLs** para abrir el APK.
-3. Añade la URL web pública de Horizon a **Redirect URLs**, por ejemplo `https://horizon.example/**`.
+3. Añade la URL web pública estable de Horizon a **Redirect URLs**: `https://horizon-journaling-app.vercel.app/**`.
 
 `localhost` puede mantenerse como URL adicional exclusivamente para desarrollo local.
 
@@ -32,3 +32,15 @@ El código usa el tipo correcto para cada operación:
 - recuperación de contraseña: `recovery`.
 
 Después de verificar un código de recuperación, Horizon muestra el formulario de nueva contraseña sin salir de la aplicación.
+
+## Despliegue del perfil privado
+
+La release que incorpora perfiles requiere desplegar el backend antes que los clientes:
+
+1. Vincula el proyecto con `supabase link --project-ref <project-ref>`.
+2. Revisa el cambio con `supabase db push --dry-run` y aplica las migraciones con `supabase db push`.
+3. Publica la función con `supabase functions deploy delete-account`.
+4. Comprueba con dos cuentas que ninguna pueda leer o modificar el perfil o avatar de la otra.
+5. Publica después la web y el APK.
+
+`SUPABASE_SERVICE_ROLE_KEY` pertenece únicamente al entorno de la Edge Function. Nunca debe añadirse a Vercel, al APK ni a variables con prefijo `VITE_`.
