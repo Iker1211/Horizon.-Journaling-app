@@ -2,11 +2,11 @@ import type { AvatarCharacterId } from '../types';
 
 export const DEFAULT_AVATAR_CHARACTER: AvatarCharacterId = 'otter';
 export const AVATAR_CHARACTERS = [
-  { id: 'otter', name: 'Nutria', note: 'Curiosa, a tu ritmo.', src: '/images/characters/otter.svg' },
-  { id: 'yak', name: 'Yak', note: 'Paso firme, corazón tranquilo.', src: '/images/characters/yak.svg' },
-  { id: 'pterodactyl', name: 'Pterodáctilo', note: 'Siempre otro horizonte.', src: '/images/characters/pterodactyl.svg' },
-  { id: 'bear', name: 'Oso', note: 'Una pausa también cuenta.', src: '/images/characters/bear.svg' },
-  { id: 'penguin', name: 'Pingüino', note: 'Pequeños pasos, grandes ideas.', src: '/images/characters/penguin.svg' },
+  { id: 'otter', name: 'Nutria', src: '/images/characters/otter.svg' },
+  { id: 'yak', name: 'Yak', src: '/images/characters/yak.svg' },
+  { id: 'pterodactyl', name: 'Pterodáctilo', src: '/images/characters/pterodactyl.svg' },
+  { id: 'bear', name: 'Oso', src: '/images/characters/bear.svg' },
+  { id: 'penguin', name: 'Pingüino', src: '/images/characters/penguin.svg' },
 ] as const;
 
 export function isAvatarCharacterId(value: unknown): value is AvatarCharacterId {

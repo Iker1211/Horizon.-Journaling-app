@@ -14,7 +14,7 @@ export function AvatarCharacterPicker({ selected, pending = null, disabled = fal
       {AVATAR_CHARACTERS.map(character => <label key={character.id} className={`character-option ${selected === character.id ? 'is-selected' : ''} ${pending === character.id ? 'is-pending' : ''}`}>
         <input type="radio" name="avatar-character" value={character.id} checked={selected === character.id} onChange={() => onSelect(character.id)} aria-label={character.name} />
         <span className="character-option-art"><ProfileAvatar characterId={character.id} />{pending === character.id ? <LoaderCircle className="character-choice-mark profile-spinner" size={16} aria-hidden /> : selected === character.id ? <Check className="character-choice-mark" size={16} aria-hidden /> : null}</span>
-        <span className="character-option-name">{character.name}</span><span className="character-option-note">{character.note}</span>
+        <span className="character-option-name">{character.name}</span>
       </label>)}
     </div>
     {pending && <p className="character-saving" role="status">Guardando tu personaje…</p>}
