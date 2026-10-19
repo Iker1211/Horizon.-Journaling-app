@@ -9,7 +9,8 @@ import { buildAccountExport, deliverAccountExport } from '../utils/accountExport
 import { AvatarEditor } from './AvatarEditor';
 import { AvatarCharacterPicker } from './AvatarCharacterPicker';
 import { ProfileAvatar } from './ProfileAvatar';
-import { DEFAULT_AVATAR_CHARACTER } from '../utils/avatarCharacters';
+import { DEFAULT_AVATAR_CHARACTER, resolveAvatarCharacter } from '../utils/avatarCharacters';
+import { CompanionMotionPreference } from './CompanionMotionPreference';
 
 interface ProfilePageProps {
   user: User;
@@ -126,6 +127,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <section className="profile-card profile-card--identity" aria-labelledby="identity-title">
           <div className="profile-card-heading"><span className="profile-card-icon"><UserRound size={20} /></span><div><h2 id="identity-title">Tu perfil</h2><p>Visible únicamente dentro de tu cuenta.</p></div></div>
           <AvatarCharacterPicker selected={profile.avatarCharacter || (avatarUrl ? null : DEFAULT_AVATAR_CHARACTER)} pending={pendingCharacter} disabled={Boolean(busy) || !isOnline} onSelect={id => { setPendingCharacter(id); void run('avatar', () => onAvatarCharacterSelect(id), 'Tu personaje ya te acompaña.').finally(() => setPendingCharacter(null)); }} />
+          {resolveAvatarCharacter(profile.avatarCharacter, avatarUrl) && <CompanionMotionPreference />}
           {avatarUrl && profile.avatarCharacter && <button type="button" className="profile-text-button" disabled={Boolean(busy) || !isOnline} onClick={() => void run('avatar', () => onAvatarCharacterSelect(null), 'Foto de perfil restaurada.')}>Volver a usar mi foto</button>}
           <details className="profile-photo-option" open={Boolean(avatarUrl && !profile.avatarCharacter)}><summary>¿Prefieres tu propia foto?</summary>
             <div className="profile-avatar-controls">

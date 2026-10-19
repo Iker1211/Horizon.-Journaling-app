@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ActiveTab, AvatarCharacterId } from '../types';
 import { LayoutDashboard, Calendar, Layers, BookOpen, Plus } from 'lucide-react';
 import { ProfileAvatar } from './ProfileAvatar';
+import { AnimalCompanion } from './AnimalCompanion';
+import { resolveAvatarCharacter } from '../utils/avatarCharacters';
 
 const MOTIVATIONAL_MESSAGES = [
   'Todo empieza contigo.',
@@ -31,6 +33,8 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQuickEntry, userEmail, userDisplayName, userAvatarUrl, userAvatarCharacter, onOpenAuth }) => {
   const [messageIndex, setMessageIndex] = useState(initialMessageIndex);
+  const [companionAttention, setCompanionAttention] = useState(0);
+  const companion = resolveAvatarCharacter(userAvatarCharacter, userAvatarUrl);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -65,8 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenQ
         <button type="button" className="btn-primary nav-write-button" onClick={onOpenQuickEntry}>
           <Plus size={17} aria-hidden="true" /> Escribir
         </button>
-        <button type="button" className={`nav-account-button nav-character-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} aria-label={userEmail ? 'Abrir mi perfil' : 'Iniciar sesión'} title={userDisplayName?.trim() ? `Perfil · ${userDisplayName.trim()}` : 'Mi perfil'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
-          <ProfileAvatar characterId={userAvatarCharacter} photoUrl={userAvatarUrl} />
+        <button type="button" className={`nav-account-button nav-character-button ${companion ? 'nav-companion-button' : ''} ${activeTab === 'profile' ? 'active' : ''}`} onClick={onOpenAuth} onPointerEnter={() => { if (companion) setCompanionAttention(value => value + 1); }} onFocus={() => { if (companion) setCompanionAttention(value => value + 1); }} aria-label={userEmail ? 'Abrir mi perfil' : 'Iniciar sesión'} title={userDisplayName?.trim() ? `Perfil · ${userDisplayName.trim()}` : 'Mi perfil'} aria-current={activeTab === 'profile' ? 'page' : undefined}>
+          {companion ? <AnimalCompanion key={companion.id} characterId={companion.id} quiet={activeTab === 'editor'} attention={companionAttention} /> : <ProfileAvatar characterId={userAvatarCharacter} photoUrl={userAvatarUrl} />}
         </button>
       </div>
     </header>

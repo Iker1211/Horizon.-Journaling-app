@@ -44,6 +44,9 @@ jobs:
       - name: 📦 Install web dependencies
         run: npm ci
 
+      - name: Validate account privacy and companion animation
+        run: npm test
+
       - name: 🏗️ Build web assets
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -55,6 +58,8 @@ jobs:
           fi
           npm run build
 
+      - name: Keep development previews out of the APK
+        run: npm run test:preview-boundary
 
       - name: 🔄 Sync Capacitor Android
         run: npx cap sync android

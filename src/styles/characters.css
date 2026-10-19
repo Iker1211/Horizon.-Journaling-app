@@ -53,3 +53,30 @@
   .character-picker-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 16px; }
 }
 @media (prefers-reduced-motion: reduce) { .avatar-figurine { transition: none !important; } }
+
+/* The hit target stays still. Only the little scene inside its reserved corner moves. */
+.app-shell:has(.nav-companion-button) { --companion-nav-height: 96px; }
+.top-nav:has(.nav-companion-button) { height: calc(var(--companion-nav-height, 96px) + var(--app-inset-top)); }
+.top-nav .nav-companion-button { flex-basis: 120px; min-width: 120px; width: 120px; height: 96px; }
+.animal-companion { position: absolute; top: -8px; right: -4px; width: 128px; height: 112px; display: block; pointer-events: none; }
+.app-shell:has(.nav-companion-button) .journey-editor .editor-markdown-toolbar { top: calc(var(--companion-nav-height) + var(--app-inset-top)); }
+.app-shell:has(.nav-companion-button) .journey-editor .editor-split-container > .reader-article-sheet { top: calc(var(--companion-nav-height) + 68px + var(--app-inset-top)); }
+.animal-companion-canvas { display: block; width: 100%; height: 100%; opacity: 0; }
+.animal-companion[data-renderer=rig] .animal-companion-canvas { opacity: 1; }
+.animal-companion[data-renderer=rig] .animal-companion-poster { display: none; }
+.animal-companion-poster { display: block; position: absolute; top: 10px; left: 50%; width: auto; height: calc(100% - 20px); max-width: none; object-fit: contain; transform: translateX(-50%); }
+.companion-preference { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 14px 0; margin: -8px 0 20px; border-block: 1px solid var(--color-hairline); color: var(--color-body); cursor: pointer; }
+.companion-preference input { width: 22px; height: 22px; margin: 0; flex: 0 0 auto; accent-color: var(--color-brand-teal); }
+.companion-preference strong { display: block; font-size: 13px; font-weight: 650; }
+.companion-preference small { display: block; font-size: 12px; line-height: 1.6; color: var(--color-muted); margin-top: 3px; }
+.companion-preference:has(input:focus-visible) { outline: 3px solid #328075; outline-offset: 4px; border-radius: 6px; }
+@media (max-width: 860px) {
+  .app-shell:has(.nav-companion-button) { --companion-nav-height: 88px; }
+  .top-nav .nav-companion-button { flex-basis: 104px; min-width: 104px; width: 104px; height: 88px; }
+  .animal-companion { width: 112px; height: 104px; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+  .app-shell:has(.nav-companion-button) { --companion-nav-height: 72px; }
+  .top-nav .nav-companion-button { height: 72px; }
+  .animal-companion { right: 0; width: 104px; height: 88px; }
+}

@@ -16,6 +16,7 @@ import type { ActiveTab, BigTheme, BlogEntry, UserProfile } from '../types';
 import type { User } from '@supabase/supabase-js';
 import { ProfilePage } from '../components/ProfilePage';
 import { isAvatarCharacterId } from '../utils/avatarCharacters';
+import { recordCompanionPreview } from './record-companion';
 import { canLeaveEntry } from '../utils/entryDraft';
 
 const OWNER = 'ux-synthetic-review';
@@ -37,7 +38,7 @@ const demoUser = { id: OWNER, email: 'alex@example.invalid', app_metadata: {}, u
 export function Preview() {
   const [tab, setTab] = useState<ActiveTab>(initialView);
   const [demoProfile, setDemoProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('horizon:ux-synthetic-review:profile-character');
+    const saved = reviewParams.get('character') || localStorage.getItem('horizon:ux-synthetic-review:profile-character');
     return { id: OWNER, displayName: 'Alex', bio: 'Un día a la vez.', cycleStartDate: '2026-10-17', avatarPath: null, avatarVersion: 0, avatarCharacter: isAvatarCharacterId(saved) ? saved : 'otter', createdAt: stamp, updatedAt: stamp };
   });
   const [themes, setThemes] = useState(scenario === 'empty' ? [] : sampleThemes);
@@ -55,6 +56,8 @@ export function Preview() {
   const [audit, setAudit] = useState('');
   const [keyboard, setKeyboard] = useState(false);
   const [insets, setInsets] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState('');
   const continueWriting = React.useRef(false);
   const navigate = (next: ActiveTab) => { if (canLeaveEntry()) setTab(next); };
   useEffect(() => { window.scrollTo(0, 0); }, [tab, selected, revision]);
@@ -107,6 +110,17 @@ export function Preview() {
       <label><input type="checkbox" checked={keyboard} onChange={e => setKeyboard(e.target.checked)} />Simular clase de teclado Android</label>
       <label><input type="checkbox" checked={insets} onChange={e => setInsets(e.target.checked)} />Simular barras Android · 24 / 48 px</label>
       <button type="button" className="btn-secondary" onClick={() => void runAudit()}>Comprobar accesibilidad</button>
+      <button type="button" className="btn-secondary" disabled={recording} onClick={async () => {
+        setRecording(true); setRecordingError('');
+        try {
+          const blob = await recordCompanionPreview();
+          const url = URL.createObjectURL(blob), link = document.createElement('a');
+          link.href = url; link.download = 'horizon-companion-live.webm'; link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 30_000);
+        } catch (error) { setRecordingError(error instanceof Error ? error.message : 'No se pudo grabar.'); }
+        finally { setRecording(false); }
+      }}>{recording ? 'Grabando el compañero…' : 'Grabar prueba del compañero'}</button>
+      {recordingError && <p role="alert">{recordingError}</p>}
       {audit && <pre className="ux-audit-result" aria-label="Resultado de accesibilidad" data-audit-state={audit.includes('"violations"') ? 'complete' : 'pending'}>{audit}</pre>}
       <p>Sin conexión a Supabase. Las entradas de muestra se reinician al recargar; los borradores de revisión usan un propietario ficticio separado.</p>
     </div></details>

@@ -1,7 +1,7 @@
 {
   "name": "horizon",
   "private": true,
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,7 @@
     "assets:generate": "node scripts/generate-assets.mjs",
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android",
-    "test": "node --test tests/privacy-regression.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "test:preview-boundary": "node scripts/check-ux-preview-build.mjs"
   },
   "dependencies": {
