@@ -136,6 +136,10 @@ jobs:
           echo "Found APK at: $APK_FILE"
           cp "$APK_FILE" "release-output/horizon-${TAG}.apk"
           echo "apk_path=release-output/horizon-${TAG}.apk" >> $GITHUB_OUTPUT
+          NOTES_FILE="docs/releases/${TAG}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "notes_path=$NOTES_FILE" >> $GITHUB_OUTPUT
+          fi
 
       - name: 📤 Upload Artifact to Actions Run
         uses: actions/upload-artifact@v4
@@ -150,6 +154,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Horizon Release ${{ github.ref_name }}
+          body_path: ${{ steps.prepare_apk.outputs.notes_path }}
           files: release-output/*.apk
           draft: false
           prerelease: false

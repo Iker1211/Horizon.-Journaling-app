@@ -1,6 +1,6 @@
 # Horizon: presencia y concentración
 
-Rama: `codex/companion-presence-ux`. Base: `25d547b` (v0.1.11). Evaluación: 24–25 de octubre de 2026. Trabajo local de revisión; sin publicación en producción.
+Rama: `codex/companion-presence-ux`. Base: `25d547b` (v0.1.11). Evaluación: 24–25 de octubre de 2026. La evaluación original se realizó localmente, sin publicación. El usuario autorizó posteriormente distribuirla como v0.1.12; véanse las [notas de la release](releases/v0.1.12.md).
 
 ## Objetivo y alcance
 
@@ -185,6 +185,6 @@ Reglas de decisión definidas para esa prueba: corregir inmediatamente si una pe
 
 Puntos de entrada: `src/utils/companionPresence.ts` (estados), `src/context/CompanionPresenceContext.tsx` (tiempos y contexto), `src/utils/penguinMotion.ts` (coreografía junto al motor base conservado), `AnimalCompanion.tsx` (suspensión/render), `Navbar.tsx`, `Dashboard.tsx`, `BlogEditorPage.tsx`, `MarkdownRenderer.tsx` y `src/styles/presence.css`. Pruebas nuevas: `tests/presence-context.test.mjs` y `tests/companion-presence-motion.test.mjs`.
 
-APK de compilación local: `android/app/build/outputs/apk/debug/app-debug.apk`, sin nueva versión ni release. SHA-256 final: `e2a08db65f892590d8880c34ed9382db272b1ed01a551991426840697446dc9f`. Se cotejó cada asset empaquetado con `dist` después de la última compilación.
+Artefacto de la evaluación original: `android/app/build/outputs/apk/debug/app-debug.apk`, versión 0.1.11/código 19, previo a preparar la distribución v0.1.12. SHA-256 de aquella compilación: `e2a08db65f892590d8880c34ed9382db272b1ed01a551991426840697446dc9f`. Se cotejó cada asset empaquetado con `dist`. El APK de distribución v0.1.12 se genera y firma por separado en GitHub Actions.
 
-Reversión: revertir el commit de esta rama; no hay datos ni esquema que deshacer. Para comparar durante revisión, usar el selector Base, que conserva la presentación anterior; la corrección de accesibilidad del Markdown se comparte en ambas variantes. El prototipo y las métricas nunca se deben promover como páginas públicas. La publicación queda fuera de esta entrega.
+Reversión: revertir el commit de esta rama; no hay datos ni esquema que deshacer. Para comparar durante revisión, usar el selector Base, que conserva la presentación anterior; la corrección de accesibilidad del Markdown se comparte en ambas variantes. El prototipo y las métricas quedan fuera de los artefactos de producción. La publicación se autorizó por separado tras revisar esta entrega.
