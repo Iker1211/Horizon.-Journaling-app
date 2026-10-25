@@ -32,6 +32,7 @@ import { ProfilePage } from "./components/ProfilePage";
 import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, selectAvatarCharacter, updateProfile, uploadAvatar } from "./services/profile";
 import { getAppStartDate, saveAppStartDate } from "./utils/quarters";
 import { canLeaveEntry } from './utils/entryDraft';
+import { clearGoogleAuthenticationState } from './services/googleAuth';
 
 export const App: React.FC = () => {
   // Navigation & Route state
@@ -79,10 +80,14 @@ export const App: React.FC = () => {
     setIsAuthModalOpen(true);
   }, []);
 
-  const handleAuthCallbackSuccess = useCallback(() => {
+  const handleAuthCallbackSuccess = useCallback((returnToProfile = false) => {
     setAuthError(null);
     setAuthModalError(null);
     setIsAuthModalOpen(false);
+    if (returnToProfile) {
+      setActiveTab('profile');
+      window.location.hash = '#/profile';
+    }
   }, []);
 
   const handleAuthCallbackError = useCallback((message: string) => {
@@ -199,6 +204,7 @@ export const App: React.FC = () => {
       const previousId = userIdRef.current;
       const nextId = nextUser?.id ?? null;
       if (previousId !== nextId) {
+        if (previousId) clearGoogleAuthenticationState();
         userIdRef.current = nextId;
         sessionEpoch.current += 1;
         setAccountData({ ownerId: null, themes: [], blogEntries: [] });

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
+import { FunctionsHttpError, type User } from '@supabase/supabase-js';
 import { AlertCircle, Camera, CheckCircle2, Download, KeyRound, LoaderCircle, LogOut, Mail, RefreshCw, ShieldAlert, Trash2, UserRound } from 'lucide-react';
 import type { AvatarCharacterId, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,7 @@ import { AvatarCharacterPicker } from './AvatarCharacterPicker';
 import { ProfileAvatar } from './ProfileAvatar';
 import { DEFAULT_AVATAR_CHARACTER, resolveAvatarCharacter } from '../utils/avatarCharacters';
 import { CompanionMotionPreference } from './CompanionMotionPreference';
+import { clearGoogleReauthentication, getGoogleReauthenticationExpiresAt, hasGoogleIdentity, hasRecentGoogleReauthentication, isGoogleOnlyAccount, startGoogleSignIn } from '../services/googleAuth';
 
 interface ProfilePageProps {
   user: User;
@@ -28,7 +29,7 @@ interface ProfilePageProps {
   accountActionsEnabled?: boolean;
 }
 
-type BusyAction = 'profile' | 'avatar' | 'email' | 'password' | 'export' | 'delete' | 'signout' | null;
+type BusyAction = 'profile' | 'avatar' | 'email' | 'password' | 'export' | 'delete' | 'signout' | 'google' | null;
 
 function describeError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : '';
@@ -52,8 +53,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [googleReauthenticationExpiresAt, setGoogleReauthenticationExpiresAt] = useState(() => hasRecentGoogleReauthentication(user.id) ? getGoogleReauthenticationExpiresAt(user.id) : 0);
+  const [googleConfirmationExpired, setGoogleConfirmationExpired] = useState(false);
+  const [showGoogleSavePrompt, setShowGoogleSavePrompt] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const googleLinked = hasGoogleIdentity(user);
+  const googleOnly = isGoogleOnlyAccount(user);
+  const googleRecentlyConfirmed = googleLinked && googleReauthenticationExpiresAt > 0;
   const fileInput = useRef<HTMLInputElement>(null);
+  const googleSavePrompt = useRef<HTMLDivElement>(null);
+  const allowGoogleRedirect = useRef(false);
   const [pendingCharacter, setPendingCharacter] = useState<AvatarCharacterId | null>(null);
   const previousProfile = useRef(profile);
   useEffect(() => {
@@ -72,7 +81,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => {
     if (!dirty) return;
-    const protectDraft = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    const protectDraft = (event: BeforeUnloadEvent) => {
+      if (allowGoogleRedirect.current) return;
+      event.preventDefault(); event.returnValue = '';
+    };
     window.addEventListener('beforeunload', protectDraft);
     return () => window.removeEventListener('beforeunload', protectDraft);
   }, [dirty]);
@@ -83,6 +95,40 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     window.addEventListener('offline', offline);
     return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
   }, []);
+  useEffect(() => {
+    const refreshGoogleConfirmation = () => {
+      const recent = hasRecentGoogleReauthentication(user.id);
+      setGoogleReauthenticationExpiresAt(recent ? getGoogleReauthenticationExpiresAt(user.id) : 0);
+      if (recent) setGoogleConfirmationExpired(false);
+      else if (googleReauthenticationExpiresAt) setGoogleConfirmationExpired(true);
+    };
+    const confirmed = () => {
+      refreshGoogleConfirmation();
+      if (hasRecentGoogleReauthentication(user.id)) {
+        setDeleteConfirmation('');
+        setFeedback({ type: 'success', text: 'Identidad confirmada con Google. Si quieres eliminar tu cuenta, escribe ELIMINAR y confirma la acción.' });
+      }
+    };
+    window.addEventListener('horizon:google-reauthenticated', confirmed);
+    window.addEventListener('focus', refreshGoogleConfirmation);
+    document.addEventListener('visibilitychange', refreshGoogleConfirmation);
+    return () => {
+      window.removeEventListener('horizon:google-reauthenticated', confirmed);
+      window.removeEventListener('focus', refreshGoogleConfirmation);
+      document.removeEventListener('visibilitychange', refreshGoogleConfirmation);
+    };
+  }, [user.id, googleReauthenticationExpiresAt]);
+  useEffect(() => {
+    if (!googleReauthenticationExpiresAt) return;
+    const timeout = window.setTimeout(() => {
+      setGoogleReauthenticationExpiresAt(0);
+      setGoogleConfirmationExpired(true);
+    }, Math.max(0, googleReauthenticationExpiresAt - Date.now()));
+    return () => window.clearTimeout(timeout);
+  }, [googleReauthenticationExpiresAt]);
+  useEffect(() => {
+    if (showGoogleSavePrompt && dirty) googleSavePrompt.current?.focus();
+  }, [showGoogleSavePrompt, dirty]);
 
   const run = async (action: BusyAction, task: () => Promise<void>, success?: string) => {
     setBusy(action);
@@ -109,6 +155,30 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  const confirmWithGoogle = async (saveChanges = false) => {
+    if (dirty && !saveChanges) {
+      setShowGoogleSavePrompt(true);
+      return;
+    }
+    await run('google', async () => {
+      if (dirty) {
+        await onSave({ displayName, bio, cycleStartDate });
+        setDisplayName(displayName.trim());
+        setBio(bio.trim());
+      }
+      setShowGoogleSavePrompt(false);
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setDeletePassword(''); setDeleteConfirmation('');
+      // Only saved profile changes may bypass the normal leave-page protection.
+      allowGoogleRedirect.current = true;
+      onDirtyChange?.(false);
+      try {
+        await startGoogleSignIn({ reauthenticateUserId: user.id });
+      } finally {
+        allowGoogleRedirect.current = false;
+      }
+    }, 'Completa la verificación en Google y vuelve a Horizon. Abrir Google no elimina tu cuenta.');
+  };
+
   if (loading) return <section className="profile-page profile-state" aria-busy="true"><LoaderCircle className="profile-spinner" size={26} /><p>Cargando tu perfil…</p></section>;
   if (error || !profile) return <section className="profile-page profile-state"><AlertCircle size={28} /><h1>No pudimos cargar tu perfil</h1><p role="alert">{error || 'Tu perfil todavía no está disponible.'}</p><button type="button" className="btn-primary" onClick={onRetry}><RefreshCw size={17} />Volver a intentar</button></section>;
 
@@ -124,7 +194,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       {feedback && <div className={`profile-feedback ${feedback.type === 'error' ? 'profile-feedback--error' : ''}`} role={feedback.type === 'error' ? 'alert' : 'status'}>{feedback.type === 'error' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}<p>{feedback.text}</p></div>}
 
       <div className="profile-grid">
-        <section className="profile-card profile-card--identity" aria-labelledby="identity-title">
+        <section className="profile-card profile-card--identity" aria-labelledby="identity-title" inert={busy === 'google'}>
           <div className="profile-card-heading"><span className="profile-card-icon"><UserRound size={20} /></span><div><h2 id="identity-title">Tu perfil</h2><p>Visible únicamente dentro de tu cuenta.</p></div></div>
           <AvatarCharacterPicker selected={profile.avatarCharacter || (avatarUrl ? null : DEFAULT_AVATAR_CHARACTER)} pending={pendingCharacter} disabled={Boolean(busy) || !isOnline} onSelect={id => { setPendingCharacter(id); void run('avatar', () => onAvatarCharacterSelect(id), 'Tu personaje ya te acompaña.').finally(() => setPendingCharacter(null)); }} />
           {resolveAvatarCharacter(profile.avatarCharacter, avatarUrl) && <CompanionMotionPreference />}
@@ -140,10 +210,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <label><span>Descripción breve <em>Opcional</em></span><textarea maxLength={160} rows={3} value={bio} onChange={event => setBio(event.target.value)} placeholder="Una frase que te recuerde hacia dónde vas." /><small>{bio.length}/160</small></label>
             <label><span>Inicio de tu ciclo de 365 días</span><input type="date" value={cycleStartDate} onChange={event => setCycleStartDate(event.target.value)} required /><small>Se sincroniza entre tus dispositivos.</small></label>
           </div>
-          <div className="profile-form-actions"><button type="button" className="btn-secondary" disabled={!dirty || Boolean(busy)} onClick={() => { setDisplayName(profile.displayName); setBio(profile.bio); setCycleStartDate(profile.cycleStartDate); }}>Descartar</button><button type="button" className="btn-primary" disabled={!dirty || !cycleStartDate || Boolean(busy)} onClick={() => void run('profile', async () => { await onSave({ displayName, bio, cycleStartDate }); setDisplayName(displayName.trim()); setBio(bio.trim()); }, 'Cambios guardados.')}>{busy === 'profile' ? <><LoaderCircle className="profile-spinner" size={17} />Guardando…</> : 'Guardar cambios'}</button></div>
+          <div className="profile-form-actions"><button type="button" className="btn-secondary" disabled={!dirty || Boolean(busy)} onClick={() => { setDisplayName(profile.displayName); setBio(profile.bio); setCycleStartDate(profile.cycleStartDate); setShowGoogleSavePrompt(false); }}>Descartar</button><button type="button" className="btn-primary" disabled={!dirty || !cycleStartDate || Boolean(busy)} onClick={() => void run('profile', async () => { await onSave({ displayName, bio, cycleStartDate }); setDisplayName(displayName.trim()); setBio(bio.trim()); setShowGoogleSavePrompt(false); }, 'Cambios guardados.')}>{busy === 'profile' ? <><LoaderCircle className="profile-spinner" size={17} />Guardando…</> : 'Guardar cambios'}</button></div>
         </section>
 
-        <div className="profile-side-column" inert={!accountActionsEnabled}>
+        <div className="profile-side-column" inert={!accountActionsEnabled || busy === 'google'}>
+          {googleOnly ? <section className="profile-card" aria-labelledby="google-account-title">
+            <div className="profile-card-heading"><span className="profile-card-icon"><KeyRound size={20} /></span><div><h2 id="google-account-title">Acceso con Google</h2><p>Google verifica tu identidad al entrar en Horizon.</p></div></div>
+            <p className="profile-account-address">{user.email}</p>
+            <p className="profile-account-note">Tu cuenta no tiene una contraseña de Horizon. Los cambios de correo, contraseña y la recuperación de acceso se gestionan en tu cuenta de Google.</p>
+          </section> : <>
           <section className="profile-card" aria-labelledby="email-title">
             <div className="profile-card-heading"><span className="profile-card-icon"><Mail size={20} /></span><div><h2 id="email-title">Correo electrónico</h2><p>Se confirma en tu correo antes de cambiar.</p></div></div>
             <label className="profile-field"><span>Nuevo correo</span><input type="email" inputMode="email" autoCapitalize="none" value={newEmail} onChange={event => setNewEmail(event.target.value)} /></label>
@@ -170,6 +245,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
             }, 'Contraseña actualizada.')}>{busy === 'password' ? 'Actualizando…' : 'Actualizar contraseña'}</button>
           </section>
+          </>}
 
           <section className="profile-card" aria-labelledby="data-title">
             <div className="profile-card-heading"><span className="profile-card-icon"><Download size={20} /></span><div><h2 id="data-title">Tus datos</h2><p>Descarga una copia legible y verificable.</p></div></div>
@@ -181,10 +257,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       <section className="profile-card profile-danger" aria-labelledby="delete-title" inert={!accountActionsEnabled}>
         <div className="profile-card-heading"><span className="profile-card-icon"><ShieldAlert size={20} /></span><div><h2 id="delete-title">Eliminar cuenta</h2><p>Elimina tu perfil, wrappers, entradas, hitos y avatar de forma permanente.</p></div></div>
-        <div className="profile-danger-fields"><label><span>Contraseña actual</span><input type="password" autoComplete="current-password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} /></label><label><span>Escribe ELIMINAR</span><input type="text" autoComplete="off" value={deleteConfirmation} onChange={event => setDeleteConfirmation(event.target.value)} /></label></div>
-        <button type="button" className="profile-delete-button" disabled={Boolean(busy) || !deletePassword || deleteConfirmation !== 'ELIMINAR'} onClick={() => void run('delete', async () => {
+        {googleLinked && <div className="profile-google-confirmation">
+          <p className="profile-account-note">{googleOnly ? 'Confirma tu identidad con Google antes de eliminar tu cuenta.' : 'Confirma tu identidad con Google o utiliza tu contraseña actual.'} Puede que Google te pida volver a iniciar sesión. Necesitamos una confirmación reciente para proteger tu cuenta.</p>
+          <button type="button" className="btn-secondary" disabled={Boolean(busy) || !isOnline} onClick={() => void confirmWithGoogle()}>{busy === 'google' ? <><LoaderCircle className="profile-spinner" size={17} />Abriendo Google…</> : 'Confirmar identidad con Google'}</button>
+          {googleRecentlyConfirmed && <p className="profile-account-note" role="status">Identidad confirmada. Todavía debes escribir ELIMINAR y pulsar el botón de eliminación.</p>}
+          {googleConfirmationExpired && <p className="profile-account-note" role="status">La confirmación ha caducado. Vuelve a confirmar tu identidad con Google para continuar.</p>}
+          {showGoogleSavePrompt && dirty && <div ref={googleSavePrompt} className="profile-google-save-prompt" tabIndex={-1} role="alert">
+            <p>Tienes cambios de perfil sin guardar. Guárdalos antes de abrir Google para conservarlos.</p>
+            <div className="profile-google-save-actions"><button type="button" className="btn-secondary" disabled={Boolean(busy)} onClick={() => setShowGoogleSavePrompt(false)}>Seguir editando</button><button type="button" className="btn-primary" disabled={Boolean(busy) || !isOnline || !cycleStartDate} onClick={() => void confirmWithGoogle(true)}>Guardar cambios y continuar con Google</button></div>
+          </div>}
+        </div>}
+        <div className="profile-danger-fields">{!googleOnly && <label><span>Contraseña actual{googleLinked && googleRecentlyConfirmed ? ' (opcional tras confirmar con Google)' : ''}</span><input type="password" autoComplete="current-password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} /></label>}<label><span>Escribe ELIMINAR</span><input type="text" autoComplete="off" value={deleteConfirmation} onChange={event => setDeleteConfirmation(event.target.value)} /></label></div>
+        <button type="button" className="profile-delete-button" disabled={Boolean(busy) || !isOnline || (!googleRecentlyConfirmed && (googleOnly || !deletePassword)) || deleteConfirmation !== 'ELIMINAR'} onClick={() => void run('delete', async () => {
           if (!supabase) throw new Error('Servicio no disponible.');
-          const { error: invokeError } = await supabase.functions.invoke('delete-account', { body: { currentPassword: deletePassword, confirmation: deleteConfirmation } });
+          const useGoogleConfirmation = googleLinked && hasRecentGoogleReauthentication(user.id);
+          if (!useGoogleConfirmation && (googleOnly || !deletePassword)) {
+            setGoogleReauthenticationExpiresAt(0);
+            setGoogleConfirmationExpired(true);
+            throw new Error('La confirmación de Google ha caducado. Confirma tu identidad de nuevo antes de eliminar tu cuenta.');
+          }
+          const { error: invokeError } = await supabase.functions.invoke('delete-account', { body: {
+            confirmation: deleteConfirmation,
+            ...(!useGoogleConfirmation && { currentPassword: deletePassword }),
+          } });
+          if (invokeError instanceof FunctionsHttpError && invokeError.context instanceof Response && invokeError.context.status === 403) {
+            let detail: unknown;
+            try { detail = await invokeError.context.clone().json(); } catch { /* A response without a code must not invalidate a confirmed identity. */ }
+            if (typeof detail === 'object' && detail !== null && 'code' in detail && detail.code === 'oauth_reauthentication_required') {
+              clearGoogleReauthentication(user.id);
+              setGoogleReauthenticationExpiresAt(0);
+              setGoogleConfirmationExpired(true);
+              throw new Error('Confirma tu identidad de nuevo con Google antes de eliminar tu cuenta.');
+            }
+          }
           if (invokeError) throw invokeError;
           await supabase.auth.signOut({ scope: 'local' });
           window.location.hash = '#/dashboard';

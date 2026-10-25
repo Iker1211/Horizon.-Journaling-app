@@ -46,6 +46,15 @@
 .auth-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin-bottom: 24px; border-radius: 13px; background: var(--color-surface-soft); border: 1px solid var(--color-hairline); }
 .auth-switch button { min-height: 44px; padding: 8px; border: none; border-radius: 9px; color: var(--color-muted); background: transparent; font: 600 13px var(--font-primary); cursor: pointer; }
 .auth-switch button[aria-pressed="true"] { background: var(--color-canvas); color: var(--color-ink); box-shadow: var(--shadow-clay-sm); }
+.auth-google-button { background: var(--color-canvas); }
+.auth-google-button > svg { flex-shrink: 0; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--color-muted); font: 400 12px/1.5 var(--font-primary); text-align: center; }
+.auth-divider::before, .auth-divider::after { content: ""; height: 1px; flex: 1; background: var(--color-hairline); }
+.auth-divider span { max-width: 70%; }
+.auth-provider-status, .auth-account-help { color: var(--color-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.auth-provider-status { margin: 0 0 16px; }
+.auth-provider-status p, .auth-account-help { margin: 0; }
+.auth-google-option .auth-account-help { margin-top: 12px; }
 .auth-form { margin-bottom: 12px; }
 .auth-form fieldset { min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 0; margin: 0; border: 0; }
 .auth-field { display: flex; min-width: 0; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; }
@@ -68,6 +77,9 @@
 .auth-back { gap: 7px; width: fit-content; margin: 12px auto 0; }
 .auth-code-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .auth-field .auth-code-input { height: 64px; text-align: center; font: 600 26px var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: 6px; }
+.auth-field .auth-code-input--long { font-size: 23px; letter-spacing: 2px; }
+.auth-delivery-help { color: var(--color-muted); font-size: 12px; line-height: 1.6; margin-top: 12px; }
+.auth-delivery-help p { margin: 0; }
 .auth-feedback { display: flex; align-items: flex-start; gap: 10px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--color-brand-mint); border-radius: var(--radius-md); background: rgba(164, 212, 197, 0.15); color: var(--color-brand-teal); font-size: 13px; line-height: 1.55; }
 .auth-feedback svg { flex-shrink: 0; margin-top: 2px; }
 .auth-feedback--error { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.25); color: var(--color-body); }

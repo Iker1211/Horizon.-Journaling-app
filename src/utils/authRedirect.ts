@@ -1,7 +1,7 @@
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 
-export type AuthFlow = 'signin' | 'signup' | 'recovery';
+export type AuthFlow = 'signin' | 'signup' | 'recovery' | 'google' | 'google-reauth';
 
 export interface ParsedAuthCallback {
   accessToken: string | null;
@@ -11,6 +11,7 @@ export interface ParsedAuthCallback {
   otpType: EmailOtpType | null;
   flow: AuthFlow | null;
   error: string | null;
+  errorCode: string | null;
 }
 
 const NATIVE_AUTH_CALLBACK = 'horizon://auth/callback';
@@ -23,19 +24,13 @@ const EMAIL_OTP_TYPES = new Set<EmailOtpType>([
   'email',
 ]);
 
-function normalizeBaseUrl(value: string) {
-  return value.trim().replace(/\/$/, '');
-}
-
 export function getAuthRedirectUrl(flow: AuthFlow) {
   if (Capacitor.isNativePlatform()) {
     return `${NATIVE_AUTH_CALLBACK}?flow=${flow}`;
   }
 
-  const configuredUrl = normalizeBaseUrl(import.meta.env.VITE_PUBLIC_SITE_URL ?? '');
-  const baseUrl = configuredUrl || `${window.location.origin}${window.location.pathname}`;
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}auth=callback&flow=${flow}`;
+  // PKCE's verifier belongs to the initiating origin. A localhost login must not return to Vercel.
+  return `${window.location.origin}${window.location.pathname}?auth=callback&flow=${flow}`;
 }
 
 function readCallbackParams(url: URL) {
@@ -43,7 +38,7 @@ function readCallbackParams(url: URL) {
   const fragment = url.hash.replace(/^#/, '');
   if (fragment && !fragment.startsWith('/')) {
     const fragmentParams = new URLSearchParams(fragment);
-    fragmentParams.forEach((value, key) => params.set(key, value));
+    fragmentParams.forEach((value, key) => { if (!params.has(key)) params.set(key, value); });
   }
   return params;
 }
@@ -67,7 +62,7 @@ export function parseAuthCallbackUrl(rawUrl: string): ParsedAuthCallback | null 
     ? rawType as EmailOtpType
     : null;
   const rawFlow = params.get('flow');
-  const flow = rawFlow === 'signin' || rawFlow === 'signup' || rawFlow === 'recovery'
+  const flow = rawFlow === 'signin' || rawFlow === 'signup' || rawFlow === 'recovery' || rawFlow === 'google' || rawFlow === 'google-reauth'
     ? rawFlow
     : otpType === 'recovery' ? 'recovery' : null;
 
@@ -79,6 +74,7 @@ export function parseAuthCallbackUrl(rawUrl: string): ParsedAuthCallback | null 
     otpType,
     flow,
     error: params.get('error_description')?.replace(/\+/g, ' ') || params.get('error') || null,
+    errorCode: params.get('error_code') || params.get('error'),
   };
 }
 

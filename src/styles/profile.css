@@ -24,6 +24,14 @@
 .profile-fields input, .profile-fields textarea, .profile-field input, .profile-danger-fields input { width: 100%; min-height: 46px; padding: 11px 13px; border: 1px solid var(--color-hairline); border-radius: 12px; background: #fffefb; color: var(--color-ink); font: inherit; font-weight: 500; resize: vertical; }
 .profile-fields input:focus, .profile-fields textarea:focus, .profile-field input:focus, .profile-danger-fields input:focus { outline: 3px solid rgba(85,164,157,.18); border-color: var(--color-brand-teal); }
 .profile-fields small { justify-self: end; color: var(--color-muted); font-weight: 500; }
+.profile-account-address { margin: 0 0 10px; font-weight: 700; overflow-wrap: anywhere; }
+.profile-account-note { color: var(--color-muted); line-height: 1.55; font-size: 14px; }
+.profile-account-note:last-child { margin-bottom: 0; }
+.profile-google-confirmation { margin-bottom: 20px; }
+.profile-google-save-prompt { margin-top: 16px; padding: 16px; border: 1px solid var(--color-hairline); border-radius: 14px; background: var(--color-surface-card); }
+.profile-google-save-prompt p { margin: 0 0 14px; line-height: 1.55; }
+.profile-google-save-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.profile-google-save-actions button { flex: 1 1 180px; justify-content: center; }
 .profile-form-actions, .profile-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 .profile-full-button { width: 100%; margin-top: 14px; justify-content: center; }
 .profile-text-button, .profile-signout { min-height: 44px; border: 0; background: transparent; color: var(--color-muted); font: inherit; font-weight: 700; cursor: pointer; }
