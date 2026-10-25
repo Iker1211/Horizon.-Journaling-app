@@ -1,26 +1,30 @@
 import { useEffect, useRef } from 'react';
 import type { AvatarCharacterId } from '../types';
 import { useCompanionPreference } from '../hooks/useCompanionPreference';
-import { createPenguinMotion, type PenguinMotionPose } from '../utils/penguinMotion';
+import { createCompanionPresenceMotion, createPenguinMotion, type PenguinMotionPose } from '../utils/penguinMotion';
 import { createAnimalIllustrationRenderer, loadAnimalIllustration, getAnimalPoster } from '../lib/animalIllustration';
+import type { CompanionPresence } from '../utils/companionPresence';
 
 /** Articulate the selected profile illustration, inside a stable profile target. */
-export function AnimalCompanion({ characterId, quiet = false, attention = 0 }: { characterId: AvatarCharacterId; quiet?: boolean; attention?: number }) {
+export function AnimalCompanion({ characterId, quiet = false, attention = 0, presence }: { characterId: AvatarCharacterId; quiet?: boolean; attention?: number; presence?: CompanionPresence }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<HTMLSpanElement>(null);
   const options = useCompanionPreference();
-  const config = useRef({ enabled: options.enabled, reduced: options.reducedMotion, quiet });
+  const config = useRef({ enabled: options.enabled, reduced: options.reducedMotion, quiet, presence });
+  const contextual = Boolean(presence);
+  const presenceCue = presence?.cue, presenceConfirmation = presence?.confirmation;
   const controls = useRef<{ synchronize(): void; greet(): void } | null>(null);
   useEffect(() => {
-    config.current = { enabled: options.enabled, reduced: options.reducedMotion, quiet };
+    config.current = { enabled: options.enabled, reduced: options.reducedMotion, quiet, presence: presenceCue === undefined ? undefined : { cue: presenceCue, confirmation: presenceConfirmation ?? 0 } };
     controls.current?.synchronize();
-  }, [options.enabled, options.reducedMotion, quiet]);
+  }, [options.enabled, options.reducedMotion, quiet, presenceCue, presenceConfirmation]);
 
   useEffect(() => {
     const canvas = canvasRef.current, scene = sceneRef.current;
     if (!canvas || !scene) return;
     let renderer: ReturnType<typeof createAnimalIllustrationRenderer> = null;
     let playback: ReturnType<typeof createPenguinMotion> | null = null;
+    let presencePlayback: ReturnType<typeof createCompanionPresenceMotion> | null = null;
     const neutral: PenguinMotionPose = { x: 0, y: 0, lean: 0, headTurn: 0, headBob: 0, flipper: 0, step: 0, blink: 0, breath: 0 };
     let pose = neutral;
     let frame = 0, lastDraw = -Infinity, quietUntil = 0;
@@ -31,17 +35,24 @@ export function AnimalCompanion({ characterId, quiet = false, attention = 0 }: {
     const isQuiet = () => config.current.quiet || performance.now() < quietUntil || document.documentElement.classList.contains('keyboard-open') || (
       document.activeElement instanceof HTMLElement && document.activeElement.matches('textarea, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), [contenteditable=true], [role=textbox]')
     );
+    const environment = () => ({
+      presence: config.current.presence || { cue: 'available' as const, confirmation: 0 },
+      quiet: isQuiet(),
+      suppressed: !config.current.enabled || config.current.reduced || blocked(),
+    });
     const draw = () => {
       if (!renderer || disposed) return;
       renderer.render(pose);
+      if (import.meta.env.DEV) scene.dataset.drawCount = String(Number(scene.dataset.drawCount || 0) + 1);
     };
     const tick = (now: number) => {
       if (!running || disposed || !playback) return;
       if (now - lastDraw >= 1000 / 24) {
         const soft = isQuiet();
-        pose = playback.sample(now, soft);
+        pose = presencePlayback ? presencePlayback.sample(now, environment()) : playback.sample(now, soft);
         draw();
-        scene.dataset.motion = soft ? 'quiet' : 'playing';
+        scene.dataset.motion = soft || (contextual && ['focus', 'saving', 'error'].includes(config.current.presence?.cue || '')) ? 'quiet' : 'playing';
+        if (contextual) scene.dataset.presence = config.current.presence?.cue || 'available';
         lastDraw = now;
       }
       frame = requestAnimationFrame(tick);
@@ -50,15 +61,18 @@ export function AnimalCompanion({ characterId, quiet = false, attention = 0 }: {
       if (disposed || !playback) return;
       const { enabled, reduced } = config.current;
       const shouldRun = enabled && !reduced && !blocked();
-      // Unrelated dialog mutations or profile renders must not restart playback.
-      if (shouldRun && running) return;
       const now = performance.now();
+      // Unrelated dialog mutations or profile renders must not restart playback.
+      if (shouldRun && running) { presencePlayback?.synchronize(now, environment()); return; }
       if (shouldRun) {
         running = true;
         playback.resume(now);
+        presencePlayback?.synchronize(now, environment());
         lastDraw = -Infinity;
         frame = requestAnimationFrame(tick);
       } else {
+        // Observe confirmations while hidden or paused so they cannot be replayed.
+        presencePlayback?.synchronize(now, environment());
         if (!running) {
           if (reduced) { pose = neutral; draw(); }
           scene.dataset.motion = blocked() ? 'suspended' : reduced ? 'reduced' : 'paused';
@@ -88,7 +102,12 @@ export function AnimalCompanion({ characterId, quiet = false, attention = 0 }: {
         if (disposed) return;
         renderer = createAnimalIllustrationRenderer(canvas, illustration, characterId);
         if (!renderer) { scene.dataset.motion = 'unavailable'; return; }
-        playback = createPenguinMotion(Math.floor(Math.random() * 0xffffffff));
+        const seed = Math.floor(Math.random() * 0xffffffff);
+        if (contextual && config.current.presence) {
+          presencePlayback = createCompanionPresenceMotion(seed, characterId, config.current.presence);
+          // Keep the established frame/suspension interface identical in both modes.
+          playback = { ...presencePlayback, sample: now => presencePlayback!.sample(now, environment()) };
+        } else playback = createPenguinMotion(seed);
         playback.suspend(performance.now());
         resize();
         scene.dataset.renderer = 'rig';
@@ -132,10 +151,10 @@ export function AnimalCompanion({ characterId, quiet = false, attention = 0 }: {
       controls.current = null;
       scene.dataset.renderer = 'poster';
     };
-  }, [characterId]);
+  }, [characterId, contextual]);
 
   useEffect(() => { if (attention) controls.current?.greet(); }, [attention]);
-  return <span ref={sceneRef} className="animal-companion" aria-hidden="true" data-character={characterId} data-renderer="poster">
+  return <span ref={sceneRef} className="animal-companion" aria-hidden="true" data-character={characterId} data-renderer="poster" data-presence={presence?.cue}>
     <canvas ref={canvasRef} className="animal-companion-canvas" width={256} height={224} />
     <img className="animal-companion-poster" src={getAnimalPoster(characterId)} alt="" width={400} height={400} draggable={false} />
   </span>;

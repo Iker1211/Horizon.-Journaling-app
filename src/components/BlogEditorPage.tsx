@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Bold, Italic, Heading2, Quote, List, ListOrdered, CheckSquare, Code, Link, Eye, Edit3, Columns, Check, AlertCircle, Cloud, CloudOff, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Bold, Italic, Heading2, Quote, List, ListOrdered, CheckSquare, Code, Link, Eye, Edit3, Columns, Check, AlertCircle, Cloud, CloudOff, HelpCircle, Laptop } from 'lucide-react';
 import type { BlogEntry, BigTheme } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { useEntryDraft } from '../hooks/useEntryDraft';
+import { useCompanionPresence } from '../hooks/useCompanionPresence';
 
 interface BlogEditorPageProps {
   userId: string;
@@ -28,6 +29,7 @@ const formats = [
 
 export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({ userId, themes, initialThemeId, entryToEdit, onSave, onSaved, onBack }) => {
   const draft = useEntryDraft(userId, themes, entryToEdit, initialThemeId);
+  const { enabled: presenceEnabled, actions: presenceActions } = useCompanionPresence();
   const { values, update } = draft;
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,10 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({ userId, themes, 
   const theme = themes.find(t => t.id === values.themeId);
   const wordCount = values.content.trim() ? values.content.trim().split(/\s+/).length : 0;
   const statusText = isSaving ? 'Guardando en tu cuenta…' : draft.status === 'error' ? 'Borrador sin proteger' : draft.status === 'pending' ? 'Guardando borrador…' : draft.status === 'local' ? 'Borrador en este dispositivo' : entryToEdit ? 'Sin cambios pendientes' : 'Todavía no has escrito';
-  const StatusIcon = draft.status === 'error' ? AlertCircle : draft.status === 'local' ? Check : Cloud;
+  const StatusIcon = draft.status === 'error' ? AlertCircle : draft.status === 'local' ? (presenceEnabled ? Laptop : Check) : Cloud;
+  const draftFailed = draft.status === 'error';
+  useEffect(() => { presenceActions.editorState(isSaving, Boolean(error) || draftFailed); }, [presenceActions, isSaving, error, draftFailed]);
+  useEffect(() => () => presenceActions.resetEditor(), [presenceActions]);
 
   useEffect(() => {
     const changed = () => setOnline(navigator.onLine);
@@ -90,6 +95,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({ userId, themes, 
       readTimeMinutes: Math.max(1, Math.ceil(wordCount / 180)),
     };
     draft.beginSave();
+    presenceActions.editorState(true, false);
     setIsSaving(true); setError(null); setInvalidTitle(false);
     try {
       await onSave(entry);
@@ -119,7 +125,7 @@ export const BlogEditorPage: React.FC<BlogEditorPageProps> = ({ userId, themes, 
   </div>;
   const preview = <article className="reader-article-sheet" aria-label="Vista previa de la entrada"><h1 className="reader-hero-title">{values.title || 'Tu entrada'}</h1>{values.summary && <p className="reader-lead-summary">{values.summary}</p>}<MarkdownRenderer content={values.content} themeColor={theme?.color} /></article>;
 
-  return <section className={`single-column-sheet editor-page editor-page--${mode} journey-editor`} aria-label={entryToEdit ? 'Editar entrada' : 'Nueva entrada'} aria-busy={isSaving}>
+  return <section className={`single-column-sheet editor-page editor-page--${mode} journey-editor${presenceEnabled ? ' presence-editor' : ''}`} aria-label={entryToEdit ? 'Editar entrada' : 'Nueva entrada'} aria-busy={isSaving}>
     <h1 className="sr-only">{entryToEdit ? 'Editar entrada' : 'Nueva entrada'}</h1>
     <header className="entry-command-bar">
       <button type="button" className="editor-back-btn" disabled={isSaving} onClick={onBack}><ArrowLeft size={18} aria-hidden /><span>Bitácora</span></button>

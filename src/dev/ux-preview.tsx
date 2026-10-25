@@ -17,7 +17,11 @@ import type { User } from '@supabase/supabase-js';
 import { ProfilePage } from '../components/ProfilePage';
 import { isAvatarCharacterId } from '../utils/avatarCharacters';
 import { recordCompanionPreview } from './record-companion';
-import { canLeaveEntry } from '../utils/entryDraft';
+import { canLeaveEntry, pendingEntryDrafts } from '../utils/entryDraft';
+import { PresenceProvider } from '../context/CompanionPresenceContext';
+import { useCompanionPresence } from '../hooks/useCompanionPresence';
+import { presenceSurfaceForTab } from '../utils/companionPresence';
+import { usePresenceMetrics } from './presence-metrics';
 
 const OWNER = 'ux-synthetic-review';
 const stamp = '2026-10-17T10:00:00Z';
@@ -31,9 +35,22 @@ const sampleEntries: BlogEntry[] = [
 ];
 const reviewParams = new URLSearchParams(window.location.search);
 const scenario = reviewParams.get('scenario') || 'sample';
-const reviewEntries = scenario === 'empty' ? [] : sampleEntries.map((entry, index) => scenario === 'long' && index === 0 ? { ...entry, content: `${entry.content.repeat(70)}\n\nhttps://example.invalid/${'long-link-'.repeat(40)}\n\n| Idea | Detalle |\n| --- | --- |\n| Paso | ${'contenido'.repeat(20)} |\n\n\`\`\`text\n${'código largo '.repeat(40)}\n\`\`\`` } : entry);
+function entriesForScenario(value: string): BlogEntry[] {
+  if (value === 'empty') return [];
+  return sampleEntries.map((entry, index) => {
+    if (value !== 'long' || index !== 0) return entry;
+    const content = `${Array(70).fill(entry.content).join('\n\n')}\n\nhttps://example.invalid/${'long-link-'.repeat(40)}\n\n| Idea | Detalle |\n| --- | --- |\n| Paso | ${'contenido'.repeat(20)} |\n\n\`\`\`text\n${'código largo '.repeat(40)}\n\`\`\``;
+    return { ...entry, content, readTimeMinutes: Math.max(1, Math.ceil(content.trim().split(/\s+/).length / 180)) };
+  });
+}
 const initialView = ['dashboard', 'blog', 'editor', 'entry', 'profile'].includes(reviewParams.get('view') || '') ? reviewParams.get('view') as ActiveTab : 'dashboard';
+const initialFault = ['failure', 'slow', 'expired'].includes(reviewParams.get('fault') || '') ? reviewParams.get('fault')! : 'normal';
 const demoUser = { id: OWNER, email: 'alex@example.invalid', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: stamp } as User;
+
+function PresenceReviewState() {
+  const { enabled, state } = useCompanionPresence();
+  return <output hidden data-presence-review-state={state.cue} data-presence-enabled={enabled} data-presence-confirmation={Boolean(state.confirmation)} />;
+}
 
 export function Preview() {
   const [tab, setTab] = useState<ActiveTab>(initialView);
@@ -42,17 +59,25 @@ export function Preview() {
     return { id: OWNER, displayName: 'Alex', bio: 'Un día a la vez.', cycleStartDate: '2026-10-17', avatarPath: null, avatarVersion: 0, avatarCharacter: isAvatarCharacterId(saved) ? saved : 'otter', createdAt: stamp, updatedAt: stamp };
   });
   const [themes, setThemes] = useState(scenario === 'empty' ? [] : sampleThemes);
-  const [entries, setEntries] = useState(reviewEntries);
+  const [entries, setEntries] = useState(() => entriesForScenario(scenario));
+  const [reviewScenario, setReviewScenario] = useState(scenario);
   const [selected, setSelected] = useState<string | null>(initialView === 'entry' ? sampleEntries[0].id : null);
   const [editing, setEditing] = useState<BlogEntry | null>(null);
   const [wrapper, setWrapper] = useState<string | null>(null);
   const [themeModal, setThemeModal] = useState(false);
   const [quick, setQuick] = useState(false);
-  const [fault, setFault] = useState('normal');
+  const [fault, setFault] = useState(initialFault);
+  const [presentation, setPresentation] = useState(reviewParams.get('presentation') === 'baseline' ? 'baseline' : 'revision');
+  const presenceEnabled = presentation !== 'baseline';
+  const { measurement, start: startMetrics, cancel: cancelMetrics } = usePresenceMetrics(presentation);
+  const [resumeNotice, setResumeNotice] = useState('');
   const [revision, setRevision] = useState(0);
   const [query, setQuery] = useState('');
   const [confirmed, setConfirmed] = useState<string | null>(null);
+  const [presenceConfirmation, setPresenceConfirmation] = useState(0);
   const [storageBlocked, setStorageBlocked] = useState(false);
+  const [offlineSimulation, setOfflineSimulation] = useState(false);
+  const offlineSimulationSupported = Object.getOwnPropertyDescriptor(navigator, 'onLine')?.configurable ?? Object.isExtensible(navigator);
   const [audit, setAudit] = useState('');
   const [keyboard, setKeyboard] = useState(false);
   const [insets, setInsets] = useState(false);
@@ -70,6 +95,18 @@ export function Preview() {
     return () => { Storage.prototype.setItem = original; };
   }, [storageBlocked]);
   useEffect(() => {
+    if (!import.meta.env.DEV || !offlineSimulation) return;
+    const original = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+    const installed = Reflect.defineProperty(navigator, 'onLine', { configurable: true, enumerable: original?.enumerable ?? true, get: () => false });
+    if (!installed) return;
+    window.dispatchEvent(new Event('offline'));
+    return () => {
+      if (original) Object.defineProperty(navigator, 'onLine', original);
+      else Reflect.deleteProperty(navigator, 'onLine');
+      window.dispatchEvent(new Event(navigator.onLine ? 'online' : 'offline'));
+    };
+  }, [offlineSimulation]);
+  useEffect(() => {
     document.documentElement.classList.toggle('keyboard-open', keyboard);
     return () => document.documentElement.classList.remove('keyboard-open');
   }, [keyboard]);
@@ -83,7 +120,7 @@ export function Preview() {
     setAudit('Comprobando…');
     const { default: axe } = await import('axe-core');
     const result = await axe.run({ exclude: [['.ux-lab']] }, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } });
-    setAudit(JSON.stringify({ violations: result.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target), details: v.nodes.map(n => n.failureSummary) })), incomplete: result.incomplete.map(v => v.id) }, null, 2));
+    setAudit(JSON.stringify({ violations: result.violations.map(v => ({ id: v.id, impact: v.impact, targets: v.nodes.map(n => n.target), details: v.nodes.map(n => n.failureSummary) })), incomplete: result.incomplete.map(v => v.id), manualChecks: result.incomplete.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target), details: v.nodes.map(n => n.failureSummary) })) }, null, 2));
   };
   useEffect(() => {
     if (reviewParams.get('audit') !== '1') return;
@@ -104,12 +141,30 @@ export function Preview() {
   const active = entries.find(e => e.id === selected);
   return <>
     <details className="ux-lab"><summary>Revisión local · solo datos ficticios</summary><div className="ux-lab-controls">
-      <label>Escenario <select aria-label="Escenario de revisión" defaultValue={scenario} onChange={e => { setThemes(e.target.value === 'empty' ? [] : sampleThemes); setEntries(e.target.value === 'empty' ? [] : sampleEntries.map((v, i) => e.target.value === 'long' && i === 0 ? { ...v, content: v.content.repeat(70) } : v)); setTab('dashboard'); }}><option value="sample">Cuenta con entradas</option><option value="empty">Cuenta vacía</option><option value="long">Entrada larga</option></select></label>
+      <label>Presentación <select aria-label="Presentación" value={presentation} onChange={e => {
+        if (!canLeaveEntry()) return;
+        setPresentation(e.target.value);
+        const url = new URL(window.location.href);
+        url.searchParams.set('presentation', e.target.value);
+        window.history.replaceState(null, '', url);
+      }}><option value="baseline">Base</option><option value="revision">Revisión</option></select></label>
+      <label>Escenario <select aria-label="Escenario de revisión" value={reviewScenario} onChange={e => { if (!canLeaveEntry()) return; setReviewScenario(e.target.value); setThemes(e.target.value === 'empty' ? [] : sampleThemes); setEntries(entriesForScenario(e.target.value)); setTab('dashboard'); }}><option value="sample">Cuenta con entradas</option><option value="empty">Cuenta vacía</option><option value="long">Entrada larga</option></select></label>
       <label>Guardado <select aria-label="Simular guardado" value={fault} onChange={e => setFault(e.target.value)}><option value="normal">Normal</option><option value="slow">Lento · 3,5 s</option><option value="failure">Error de conexión</option><option value="expired">Sesión caducada</option></select></label>
+      <label><input type="checkbox" checked={offlineSimulation} disabled={!offlineSimulationSupported} onChange={e => setOfflineSimulation(e.target.checked)} />Simular sin conexión</label>
+      {!offlineSimulationSupported && <p>Este navegador no permite simular el estado de conexión.</p>}
       <label><input type="checkbox" checked={storageBlocked} onChange={e => setStorageBlocked(e.target.checked)} />Simular almacenamiento lleno</label>
       <label><input type="checkbox" checked={keyboard} onChange={e => setKeyboard(e.target.checked)} />Simular clase de teclado Android</label>
       <label><input type="checkbox" checked={insets} onChange={e => setInsets(e.target.checked)} />Simular barras Android · 24 / 48 px</label>
+      <button type="button" className="btn-secondary" onClick={() => {
+        const draft = pendingEntryDrafts(OWNER, entries)[0];
+        if (draft) { setResumeNotice(''); openEditor(entries.find(entry => entry.id === draft.entryId)); }
+        else setResumeNotice('Todavía no hay un borrador local que reanudar.');
+      }}>Reanudar último borrador</button>
+      {resumeNotice && <p role="status">{resumeNotice}</p>}
       <button type="button" className="btn-secondary" onClick={() => void runAudit()}>Comprobar accesibilidad</button>
+      <button type="button" className="btn-secondary" disabled={measurement.status === 'running'} onClick={startMetrics}>Medir 20 s</button>
+      {measurement.status === 'running' && <button type="button" className="btn-secondary" onClick={cancelMetrics}>Cancelar medición</button>}
+      <output className="ux-audit-result" data-presence-metrics-state={measurement.status} aria-live="polite">{measurement.status === 'running' ? 'Midiendo 20 s. Mantén esta pestaña visible y realiza el mismo recorrido en ambas presentaciones.' : measurement.status === 'cancelled' ? measurement.reason : measurement.status === 'complete' ? JSON.stringify(measurement.result, null, 2) : 'Medición preparada. No captura texto ni valores de los campos.'}</output>
       <button type="button" className="btn-secondary" disabled={recording} onClick={async () => {
         setRecording(true); setRecordingError('');
         try {
@@ -124,14 +179,16 @@ export function Preview() {
       {audit && <pre className="ux-audit-result" aria-label="Resultado de accesibilidad" data-audit-state={audit.includes('"violations"') ? 'complete' : 'pending'}>{audit}</pre>}
       <p>Sin conexión a Supabase. Las entradas de muestra se reinician al recargar; los borradores de revisión usan un propietario ficticio separado.</p>
     </div></details>
-    <div className="app-shell">
+    <PresenceProvider key={presentation} surface={presenceSurfaceForTab(tab)} confirmation={presenceConfirmation} enabled={presenceEnabled}>
+    <PresenceReviewState />
+    <div className={`app-shell${presenceEnabled ? ' presence-shell' : ''}`}>
       <Navbar activeTab={tab} setActiveTab={navigate} onOpenQuickEntry={() => openEditor()} userEmail="alex@example.invalid" userDisplayName={demoProfile.displayName} userAvatarCharacter={demoProfile.avatarCharacter} onOpenAuth={() => navigate('profile')} />
       <main className="app-main-layout" id="main-content">
-        {tab === 'entry' && confirmed === selected && <p className="entry-saved-confirmation" role="status">Entrada guardada en tu cuenta.<button type="button" aria-label="Cerrar confirmación" onClick={() => setConfirmed(null)}>×</button></p>}
-        {tab === 'dashboard' && <Dashboard userId={OWNER} themes={themes} blogEntries={entries} countdown={getCountdownTo2027()} setActiveTab={navigate} onSelectBlogEntry={openReader} onSelectThemeFilter={id => { setWrapper(id); navigate('blog'); }} onOpenQuickEntry={() => openEditor()} onCreateWrapper={() => { continueWriting.current = !themes.length; setThemeModal(true); }} onWriteForTheme={id => openEditor(undefined, id)} onOpenWrapperStudio={id => { setWrapper(id); navigate('blog'); }} onResumeDraft={id => openEditor(entries.find(e => e.id === id))} />}
+        {tab === 'entry' && confirmed === selected && <p className={`entry-saved-confirmation${presenceEnabled ? ' presence-saved-confirmation' : ''}`} role="status">{presenceEnabled ? <span><strong>Entrada guardada en tu cuenta.</strong><small>Puedes volver a ella cuando quieras.</small></span> : 'Entrada guardada en tu cuenta.'}<button type="button" aria-label="Cerrar confirmación" onClick={() => setConfirmed(null)}>×</button></p>}
+        {tab === 'dashboard' && <Dashboard presenceEnabled={presenceEnabled} userId={OWNER} themes={themes} blogEntries={entries} countdown={getCountdownTo2027()} setActiveTab={navigate} onSelectBlogEntry={openReader} onSelectThemeFilter={id => { setWrapper(id); navigate('blog'); }} onOpenQuickEntry={() => openEditor()} onCreateWrapper={() => { continueWriting.current = !themes.length; setThemeModal(true); }} onWriteForTheme={id => openEditor(undefined, id)} onOpenWrapperStudio={id => { setWrapper(id); navigate('blog'); }} onResumeDraft={id => openEditor(entries.find(e => e.id === id))} />}
         {tab !== 'dashboard' && <div className="main-content" style={{ marginTop: 24 }}>
           {(tab === 'blog' || tab === 'themes') && <BlogJournal userId={OWNER} entries={entries} themes={themes} selectedThemeFilter={wrapper} onSelectThemeFilter={setWrapper} searchQuery={query} onSearchQueryChange={setQuery} onOpenCreateEntry={() => openEditor(undefined, wrapper || undefined)} onEditEntry={entry => openEditor(entry)} onOpenReader={openReader} onDeleteEntry={id => setEntries(all => all.filter(e => e.id !== id))} />}
-          {tab === 'editor' && <BlogEditorPage key={revision} userId={OWNER} themes={themes} initialThemeId={wrapper} entryToEdit={editing} onBack={() => navigate('blog')} onSave={async entry => { await perform(); setEntries(all => [entry, ...all.filter(e => e.id !== entry.id)]); }} onSaved={entry => { setConfirmed(entry.id); openReader(entry); }} />}
+          {tab === 'editor' && <BlogEditorPage key={revision} userId={OWNER} themes={themes} initialThemeId={wrapper} entryToEdit={editing} onBack={() => navigate('blog')} onSave={async entry => { await perform(); setEntries(all => [entry, ...all.filter(e => e.id !== entry.id)]); }} onSaved={entry => { setConfirmed(entry.id); setPresenceConfirmation(value => value + 1); openReader(entry); }} />}
           {tab === 'entry' && active && <BlogEntryViewPage key={active.id} entry={active} themes={themes} allEntries={entries} onBack={() => navigate('blog')} onEdit={entry => openEditor(entry)} onSelectEntry={setSelected} onDelete={async id => { await perform(); setEntries(all => all.filter(e => e.id !== id)); }} />}
           {tab === 'profile' && <ProfilePage user={demoUser} profile={demoProfile} avatarUrl={null} loading={false} error={null} onRetry={() => {}} accountActionsEnabled={false}
             onSave={async patch => { await perform(); setDemoProfile(p => ({ ...p, ...patch, displayName: patch.displayName?.trim() ?? p.displayName, bio: patch.bio?.trim() ?? p.bio, updatedAt: new Date().toISOString() })); }}
@@ -144,6 +201,7 @@ export function Preview() {
       <QuickActionSheet isOpen={quick} onClose={() => setQuick(false)} onWriteEntry={() => openEditor()} onAddTheme={() => setThemeModal(true)} />
       <ThemeModal isOpen={themeModal} onClose={() => { continueWriting.current = false; setThemeModal(false); }} onSave={async theme => { await perform(); setThemes(all => [...all, theme]); if (continueWriting.current) { setEditing(null); setWrapper(theme.id); setRevision(n => n + 1); setTab('editor'); continueWriting.current = false; } }} />
     </div>
+    </PresenceProvider>
   </>;
 }
 

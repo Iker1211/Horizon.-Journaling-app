@@ -7,7 +7,7 @@ await access(root); // Run npm run build first.
 const files = await readdir(root, { recursive: true });
 assert.ok(!files.includes('ux-preview.html'), 'The development review HTML must not ship.');
 assert.ok(!files.includes('auth-preview.html'), 'The authentication review HTML must not ship.');
-const markers = ['ux-synthetic-review', 'demo-entry-one', 'Revisión local · solo datos ficticios', 'axe-core', '.ux-lab', 'horizon-auth-preview.example.invalid', 'Revisión del acceso · solo datos ficticios'];
+const markers = ['ux-synthetic-review', 'demo-entry-one', 'Revisión local · solo datos ficticios', 'axe-core', '.ux-lab', 'horizon-auth-preview.example.invalid', 'Revisión del acceso · solo datos ficticios', 'data-presence-review-state', 'data-presence-metrics-state', 'inputToNextFrameP95Ms', 'dataset.drawCount'];
 for (const file of files.filter(file => /\.(?:js|css|html)$/.test(file))) {
   const source = await readFile(join(root.pathname, file), 'utf8');
   for (const marker of markers) assert.ok(!source.includes(marker), `Development marker ${marker} was emitted in ${file}`);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
-import { ArrowRight, BookOpen, CalendarDays, Layers, LockKeyhole } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Layers, LockKeyhole, Check } from "lucide-react";
 import { ActiveTab, AvatarCharacterId, BigTheme, BlogEntry, UserProfile } from "./types";
 import { getCountdownTo2027, CountdownTime } from "./utils/dates";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
@@ -33,6 +33,8 @@ import { getOrCreateProfile, loadAvatarObjectUrl, removeAvatar, selectAvatarChar
 import { getAppStartDate, saveAppStartDate } from "./utils/quarters";
 import { canLeaveEntry } from './utils/entryDraft';
 import { clearGoogleAuthenticationState } from './services/googleAuth';
+import { PresenceProvider } from './context/CompanionPresenceContext';
+import { presenceSurfaceForTab } from './utils/companionPresence';
 
 export const App: React.FC = () => {
   // Navigation & Route state
@@ -47,6 +49,7 @@ export const App: React.FC = () => {
   const journalScrollRef = useRef(0);
   const [journalQuery, setJournalQuery] = useState('');
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
+  const [presenceConfirmation, setPresenceConfirmation] = useState(0);
 
   // Supabase Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -213,6 +216,7 @@ export const App: React.FC = () => {
         setSelectedThemeFilter(null);
         setJournalQuery('');
         setSavedEntryId(null);
+        setPresenceConfirmation(0);
         setThemeToEdit(null);
         setIsThemeModalOpen(false);
         setIsQuickActionSheetOpen(false);
@@ -603,6 +607,7 @@ export const App: React.FC = () => {
     );
   } else {
     page = (
+    <PresenceProvider key={user.id} surface={presenceSurfaceForTab(activeTab)} confirmation={presenceConfirmation}>
     <WrapperProvider
       key={user.id}
       wrappers={themes}
@@ -616,7 +621,7 @@ export const App: React.FC = () => {
       }}
       blogEntries={blogEntries}
     >
-      <div className="app-shell">
+      <div className="app-shell presence-shell">
         <a href="#main-content" className="skip-link" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
         <Navbar
           activeTab={activeTab}
@@ -630,10 +635,11 @@ export const App: React.FC = () => {
         />
 
         <main id="main-content" tabIndex={-1} className="app-main-layout" style={{ flex: 1 }}>
-          {savedEntryId && activeTab === 'entry' && viewingEntryId === savedEntryId && <p className="entry-saved-confirmation" role="status">Entrada guardada en tu cuenta.<button type="button" aria-label="Cerrar confirmación" onClick={() => setSavedEntryId(null)}>×</button></p>}
+          {savedEntryId && activeTab === 'entry' && viewingEntryId === savedEntryId && <p className="entry-saved-confirmation presence-saved-confirmation" role="status"><Check size={20} aria-hidden="true" /><span><strong>Entrada guardada en tu cuenta.</strong><small>Puedes volver a ella cuando quieras.</small></span><button type="button" aria-label="Cerrar confirmación" onClick={() => setSavedEntryId(null)}>×</button></p>}
           {operationError && <div className="app-error app-operation-error" role="alert">{operationError}<button onClick={() => setOperationError(null)} aria-label="Cerrar aviso">×</button></div>}
           {activeTab === "dashboard" && (
             <Dashboard
+              presenceEnabled
               userId={user.id}
               cycleStartDate={profileOwnerId === user.id ? profile?.cycleStartDate : undefined}
               themes={themes}
@@ -779,7 +785,7 @@ export const App: React.FC = () => {
             initialThemeId={editorThemeId}
             entryToEdit={activeEditingEntry}
             onSave={handleSaveBlogEntry}
-            onSaved={entry => { setSavedEntryId(entry.id); handleOpenEntry(entry.id); }}
+            onSaved={entry => { setSavedEntryId(entry.id); setPresenceConfirmation(value => value + 1); handleOpenEntry(entry.id); }}
             onBack={handleBackToBlog}
           />
         )}
@@ -845,6 +851,7 @@ export const App: React.FC = () => {
       )}
       </div>
     </WrapperProvider>
+    </PresenceProvider>
     );
   }
 

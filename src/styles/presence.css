@@ -1,0 +1,257 @@
+/* A quiet shared language: warm paper, green ink, one invitation at a time.
+   Scoped so the review can compare the original experience without overrides. */
+.presence-shell {
+  --presence-ink: #24473e;
+  --presence-body: #45594d;
+  --presence-muted: #4a5c50;
+  --presence-line: #dce2d5;
+  --presence-paper: #fffdf7;
+}
+
+.presence-shell .presence-nav {
+  background: rgb(255 253 247 / 94%);
+  border-bottom-color: #e3e7db;
+  box-shadow: none;
+}
+.presence-shell .presence-note {
+  display: flex;
+  flex: 0 1 280px;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 48px;
+  gap: 4px;
+  margin: 0;
+  color: var(--presence-ink);
+}
+.presence-shell .presence-note-kicker {
+  color: var(--presence-muted);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.presence-shell .presence-note-copy {
+  display: block;
+  max-width: 30ch;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.45;
+  letter-spacing: -.18px;
+  overflow-wrap: anywhere;
+}
+.presence-shell .presence-nav[data-presence="saved"] .presence-note-kicker { color: #406350; }
+.presence-shell .presence-nav .nav-tab-btn { min-height: 48px; }
+
+.presence-shell .presence-dashboard .dashboard-content { gap: 28px; padding-top: 26px; }
+.presence-shell .presence-dashboard .presence-arrival {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 145px;
+  align-items: end;
+  gap: 32px;
+  min-height: 0;
+  padding: 38px 42px 36px;
+  overflow: hidden;
+  border: 1px solid #dce0cf;
+  border-radius: 24px;
+  background: linear-gradient(115deg, #fffdf5 10%, #f7f2df 72%, #ecedda 100%);
+  box-shadow: 0 2px 0 rgb(255 255 255 / 70%) inset, 0 9px 28px rgb(55 72 43 / 4%);
+}
+.presence-shell .presence-arrival::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 480px;
+  height: 480px;
+  top: -310px;
+  right: -90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(238 191 115 / 24%), rgb(238 191 115 / 3%) 58%, transparent 72%);
+  pointer-events: none;
+}
+.presence-shell .presence-arrival::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 38%;
+  background: url('/images/horizon-abstract.jpg') center / cover no-repeat;
+  opacity: .08;
+  mask-image: linear-gradient(90deg, transparent, #000 75%);
+  pointer-events: none;
+}
+.presence-shell .presence-arrival .dashboard-hero-copy { max-width: 660px; }
+.presence-shell .presence-arrival .dashboard-date {
+  display: block;
+  width: fit-content;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--presence-muted);
+  font-size: 10px;
+  letter-spacing: .095em;
+  backdrop-filter: none;
+}
+.presence-shell .presence-arrival .dashboard-hero-motto {
+  max-width: 13ch;
+  color: var(--presence-ink);
+  font-size: clamp(38px, 4.1vw, 54px);
+  font-weight: 650;
+  letter-spacing: -.045em;
+  line-height: 1.08;
+}
+.presence-shell .presence-arrival-invitation {
+  margin: 14px 0 0;
+  color: var(--presence-body);
+  font-family: var(--font-display);
+  font-size: clamp(18px, 2vw, 23px);
+  font-weight: 450;
+  line-height: 1.45;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+.presence-shell .presence-arrival .dashboard-hero-description {
+  max-width: 45ch;
+  margin: 18px 0 24px;
+  color: var(--presence-body);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.presence-shell .presence-arrival .dashboard-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: auto;
+  min-height: 48px;
+  padding: 13px 18px;
+  border: 1px solid #24473e;
+  border-radius: 12px;
+  background: var(--presence-ink);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 12%) inset;
+  font-size: 14px;
+  font-weight: 600;
+}
+.presence-shell .presence-arrival .dashboard-primary-action > svg:last-child { margin-left: 10px; }
+.presence-shell .presence-arrival-aside {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  border-left: 1px solid #cdd7bf;
+  color: var(--presence-body);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 450;
+  letter-spacing: -.5px;
+  line-height: 1.6;
+}
+.presence-shell .presence-resume-context {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: 45ch;
+  margin-top: 23px;
+  padding-top: 19px;
+  border-top: 1px solid #dce0cc;
+  color: var(--presence-ink);
+}
+.presence-shell .presence-resume-context > svg { flex: 0 0 auto; }
+.presence-shell .presence-resume-context > div { min-width: 0; }
+.presence-shell .presence-resume-context span { display: block; color: var(--presence-muted); font-size: 11px; line-height: 1.5; }
+.presence-shell .presence-resume-context strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.presence-shell .presence-resume-context + .dashboard-hero-description { margin-top: 11px; font-size: 13px; }
+.presence-shell .presence-dashboard .presence-other-drafts {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--presence-line);
+  border-radius: 0;
+  background: transparent;
+}
+.presence-shell .presence-other-drafts .pending-drafts-heading { margin-bottom: 10px; }
+.presence-shell .presence-other-drafts .pending-drafts-heading > svg { display: none; }
+.presence-shell .presence-other-drafts .pending-draft-row { min-height: 68px; border-top-color: var(--presence-line); }
+.presence-shell .presence-dashboard .dashboard-section-heading h2 { color: var(--presence-ink); font-weight: 600; }
+.presence-shell .presence-dashboard .dashboard-entry-list { border-color: var(--presence-line); background: rgb(255 253 247 / 55%); }
+.presence-shell .presence-dashboard .dashboard-journal-empty { border-color: var(--presence-line); background: rgb(255 253 247 / 50%); }
+.presence-shell .presence-dashboard .dashboard-journal-empty h3 { color: var(--presence-ink); }
+
+/* Writing and its evidence stay in the same places. State changes do not move controls. */
+.presence-shell .presence-editor .entry-command-bar { border-bottom-color: var(--presence-line); }
+.presence-shell .presence-editor .editor-canvas-card,
+.presence-shell .presence-editor .reader-article-sheet { background: var(--presence-paper); border-color: var(--presence-line); box-shadow: none; }
+.presence-shell .presence-editor .editor-markdown-toolbar { background: #f5f5eb; border-color: var(--presence-line); }
+.presence-shell .presence-editor .editor-title-input { color: var(--presence-ink); font-weight: 550; }
+.presence-shell .presence-editor .editor-markdown-textarea { color: #394b40; }
+.presence-shell .presence-editor .entry-writing-footer { color: var(--presence-muted); }
+.presence-shell .presence-editor .editor-mobile-actions { background: rgb(255 253 247 / 98%); border-color: var(--presence-line); }
+.presence-shell .presence-editor :is(.editor-save-button, .editor-mode-btn, .editor-back-btn) { min-height: 48px; }
+.presence-shell .presence-editor .editor-save-button { background: var(--presence-ink); border-radius: 12px; }
+.markdown-sheet-content :is(pre, table)[tabindex="0"]:focus-visible { outline: 2px solid #328075; outline-offset: 3px; }
+.presence-shell .presence-saved-confirmation {
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1px solid #c8d6bd;
+  border-radius: 14px;
+  background: #edf3e5;
+  color: var(--presence-ink);
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.presence-shell .presence-saved-confirmation > svg { flex: 0 0 auto; color: #426443; }
+.presence-shell .presence-saved-confirmation > span { flex: 1; min-width: 0; }
+.presence-shell .presence-saved-confirmation strong { display: block; font-size: 14px; font-weight: 650; }
+.presence-shell .presence-saved-confirmation small { display: block; margin-top: 2px; color: #50634b; font-size: 12px; }
+.presence-shell .presence-saved-confirmation button { flex: 0 0 auto; color: var(--presence-ink); }
+
+@media (hover: hover) {
+  .presence-shell .presence-arrival .dashboard-primary-action:hover,
+  .presence-shell .presence-editor .editor-save-button:hover { background: #31594b; }
+}
+@media (max-width: 1050px) and (min-width: 861px) {
+  .presence-shell .presence-note { flex-basis: 190px; }
+  .presence-shell .presence-note-copy { font-size: 13px; }
+}
+@media (max-width: 860px) {
+  .presence-shell .presence-note { flex: 1 1 auto; gap: 4px; }
+  .presence-shell .presence-note-copy { max-width: 24ch; font-size: 13px; line-height: 1.4; }
+  .presence-shell .presence-dashboard .dashboard-content { padding-top: 16px; gap: 25px; }
+  .presence-shell .presence-dashboard .presence-arrival { display: block; padding: 29px 25px 27px; border-radius: 21px; }
+  .presence-shell .presence-arrival .dashboard-hero-motto { max-width: 14ch; font-size: 40px; }
+  .presence-shell .presence-arrival-invitation { max-width: 25ch; font-size: 20px; }
+  .presence-shell .presence-arrival-aside { display: none; }
+  .presence-shell .presence-arrival .dashboard-primary-action { width: 100%; }
+}
+@media (max-width: 600px) {
+  .presence-shell .presence-dashboard .presence-arrival { padding: 25px 23px; }
+  .presence-shell .presence-arrival .dashboard-date { margin-bottom: 19px; font-size: 9px; line-height: 1.5; letter-spacing: .08em; }
+  .presence-shell .presence-arrival .dashboard-hero-motto { font-size: 38px; line-height: 1.08; }
+  .presence-shell .presence-arrival-invitation { margin-top: 13px; font-size: 19px; }
+  .presence-shell .presence-arrival .dashboard-hero-description { margin-top: 16px; margin-bottom: 21px; font-size: 13px; line-height: 1.7; }
+  .presence-shell .presence-resume-context { margin-top: 19px; padding-top: 16px; }
+  .presence-shell .presence-resume-context strong { font-size: 15px; }
+  .presence-shell .presence-resume-context + .dashboard-hero-description { margin-top: 10px; font-size: 12px; }
+  .presence-shell .presence-saved-confirmation { gap: 10px; padding: 12px 13px; }
+}
+@media (max-width: 360px) {
+  .presence-shell .presence-note-kicker { font-size: 9px; }
+  .presence-shell .presence-note-copy { font-size: 12px; }
+  .presence-shell .presence-dashboard .presence-arrival { padding-inline: 19px; }
+  .presence-shell .presence-arrival .dashboard-hero-motto { font-size: 34px; }
+  .presence-shell .presence-arrival-invitation { font-size: 18px; }
+  .presence-shell .presence-arrival .dashboard-primary-action { padding-inline: 12px; font-size: 13px; }
+  .presence-shell .presence-arrival .dashboard-primary-action > svg:last-child { margin-left: auto; }
+}

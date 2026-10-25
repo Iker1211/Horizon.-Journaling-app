@@ -1,0 +1,13 @@
+{
+  "variant": "baseline",
+  "requestedDurationMs": 20000,
+  "measuredDurationMs": 20002,
+  "frames": 1089,
+  "frameIntervalP95Ms": 33.3,
+  "inputEvents": 42,
+  "inputToNextFrameP95Ms": 11.7,
+  "longTasksSupported": true,
+  "longTasks": 1,
+  "longestTaskMs": 53,
+  "tasksOver100Ms": 0
+}

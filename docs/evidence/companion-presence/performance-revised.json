@@ -1,0 +1,13 @@
+{
+  "variant": "revision",
+  "requestedDurationMs": 20000,
+  "measuredDurationMs": 20001,
+  "frames": 1129,
+  "frameIntervalP95Ms": 33.3,
+  "inputEvents": 42,
+  "inputToNextFrameP95Ms": 11.5,
+  "longTasksSupported": true,
+  "longTasks": 0,
+  "longestTaskMs": 0,
+  "tasksOver100Ms": 0
+}

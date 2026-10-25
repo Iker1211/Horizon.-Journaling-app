@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BigTheme, BlogEntry, ActiveTab } from '../types';
 import { CountdownTime, formatDateSpanish } from '../utils/dates';
 import { calculate365Cycle, getAppStartDate } from '../utils/quarters';
 import { HumanLifespanHero } from './HumanLifespanHero';
 import { PendingDrafts } from './PendingDrafts';
-import { ArrowRight, BookOpen, CalendarDays, Layers, PenLine, Plus, Target } from 'lucide-react';
+import { pendingEntryDrafts } from '../utils/entryDraft';
+import { ArrowRight, BookOpen, CalendarDays, FilePenLine, Layers, PenLine, Plus, Target } from 'lucide-react';
 
 interface DashboardProps {
   userId: string;
@@ -20,6 +21,7 @@ interface DashboardProps {
   onOpenQuickEntry?: () => void;
   onCreateWrapper?: () => void;
   onResumeDraft?: (entryId: string | null) => void;
+  presenceEnabled?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -36,7 +38,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenQuickEntry,
   onCreateWrapper,
   onResumeDraft,
+  presenceEnabled = false,
 }) => {
+  const [drafts, setDrafts] = useState(() => presenceEnabled ? pendingEntryDrafts(userId, blogEntries) : []);
+  useEffect(() => {
+    if (!presenceEnabled) return;
+    const refresh = () => setDrafts(pendingEntryDrafts(userId, blogEntries));
+    refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
+  }, [presenceEnabled, userId, blogEntries]);
+  const firstDraft = drafts[0];
   const cycle = calculate365Cycle(cycleStartDate || getAppStartDate(userId));
   const hasWrappers = themes.length > 0;
   const goalCount = themes.reduce((total, theme) => total + theme.targetGoals2027.length, 0);
@@ -54,9 +67,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="dashboard-root">
+    <div className={`dashboard-root${presenceEnabled ? ' presence-dashboard' : ''}`}>
       <div className="main-content dashboard-content">
-        <header className="dashboard-hero">
+        {presenceEnabled ? <header className="dashboard-hero presence-arrival">
+          <div className="dashboard-hero-copy">
+            <p className="dashboard-eyebrow dashboard-date">{todayLabel}</p>
+            <h1><span className="dashboard-hero-motto">Todo empieza contigo.</span></h1>
+            <p className="presence-arrival-invitation">Aquí hay espacio para lo que traes.</p>
+            {firstDraft && <div className="presence-resume-context">
+              <FilePenLine size={19} aria-hidden="true" />
+              <div><span>Tu entrada pendiente</span><strong>{firstDraft.draft.title || 'Entrada sin título'}</strong></div>
+            </div>}
+            <p className="dashboard-hero-description">
+              {firstDraft
+                ? 'El borrador está en este dispositivo. Todavía no está guardado en tu cuenta.'
+                : hasWrappers
+                  ? 'Una idea, un aprendizaje, algo que quieras recordar. Puedes empezar por ahí.'
+                  : 'Tu primer wrapper reúne las entradas de un tema o proyecto. Dale un nombre y tendrás un lugar donde escribir.'}
+            </p>
+            <div className="dashboard-hero-actions">
+              <button type="button" className="btn-primary dashboard-primary-action" onClick={firstDraft ? () => onResumeDraft ? onResumeDraft(firstDraft.entryId) : writeEntry() : hasWrappers ? writeEntry : createWrapper}>
+                {firstDraft ? <FilePenLine size={18} aria-hidden="true" /> : hasWrappers ? <PenLine size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+                {firstDraft ? 'Retomar mi entrada' : hasWrappers ? 'Escribir una entrada' : 'Crear mi primer wrapper'}
+                <ArrowRight size={17} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <p className="presence-arrival-aside" aria-hidden="true">Sin prisa.<br />A tu ritmo.</p>
+        </header> : <header className="dashboard-hero">
           <div className="dashboard-hero-glow" aria-hidden="true" />
           <div className="dashboard-hero-copy">
             <p className="dashboard-eyebrow dashboard-date"><span aria-hidden="true">✦</span>{todayLabel}</p>
@@ -86,9 +124,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span>{countdown.is2027orLater ? 'días para cerrar 2027' : 'días para 2027'}</span>
             </div>
           </div>
-        </header>
+        </header>}
 
-        <PendingDrafts userId={userId} entries={blogEntries} onResume={id => onResumeDraft ? onResumeDraft(id) : writeEntry()} />
+        <PendingDrafts userId={userId} entries={blogEntries} onResume={id => onResumeDraft ? onResumeDraft(id) : writeEntry()} {...(presenceEnabled ? { drafts, excludeFirst: true, compact: true } : {})} />
 
         <div className="dashboard-lower-grid">
           <section className="dashboard-journal" aria-labelledby="dashboard-journal-title">
