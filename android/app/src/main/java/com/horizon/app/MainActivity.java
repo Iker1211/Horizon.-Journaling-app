@@ -1,6 +1,7 @@
 package com.horizon.app;
 
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 
@@ -19,6 +20,7 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
     private Insets latestSystemBars = Insets.NONE;
+    private NavigationBarProtection navigationBarProtection;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,19 +28,26 @@ public class MainActivity extends BridgeActivity {
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-
-        WindowInsetsControllerCompat controller =
-            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        controller.setAppearanceLightStatusBars(true);
-        controller.setAppearanceLightNavigationBars(true);
+        applySystemBarAppearance();
 
         View decorView = getWindow().getDecorView();
+        // Android 15+ can ignore navigationBarColor. Paint beneath the system icons,
+        // above the WebView (including modal backdrops), using actual navigation insets.
+        navigationBarProtection = new NavigationBarProtection(getColor(R.color.navigationBarSurface));
+        decorView.getOverlay().add(navigationBarProtection);
+        decorView.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+            navigationBarProtection.setBounds(0, 0, view.getWidth(), view.getHeight())
+        );
         ViewCompat.setOnApplyWindowInsetsListener(decorView, (view, windowInsets) -> {
             Insets systemBars = windowInsets.getInsets(
                 WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
             );
             latestSystemBars = systemBars;
+            // The keyboard owns navigation appearance while its window is visible.
+            // Painting at the bottom of a resized app would otherwise cover the editor.
+            navigationBarProtection.setInsets(windowInsets.isVisible(WindowInsetsCompat.Type.ime())
+                ? Insets.NONE : windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()));
+            navigationBarProtection.setBounds(0, 0, view.getWidth(), view.getHeight());
             publishInsetsToCss(systemBars);
             return windowInsets;
         });
@@ -48,7 +57,22 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && !Insets.NONE.equals(latestSystemBars)) publishInsetsToCss(latestSystemBars);
+        if (hasFocus) {
+            applySystemBarAppearance();
+            ViewCompat.requestApplyInsets(getWindow().getDecorView());
+            if (!Insets.NONE.equals(latestSystemBars)) publishInsetsToCss(latestSystemBars);
+        }
+    }
+
+    private void applySystemBarAppearance() {
+        getWindow().setNavigationBarColor(getColor(R.color.navigationBarSurface));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(true);
+        }
+        WindowInsetsControllerCompat controller =
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(true);
+        controller.setAppearanceLightNavigationBars(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
     }
 
     private void publishInsetsToCss(Insets insets) {
